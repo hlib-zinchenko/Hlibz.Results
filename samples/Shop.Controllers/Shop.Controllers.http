@@ -1,0 +1,27 @@
+# Run: dotnet run --project samples/Shop.Controllers
+@host = http://localhost:5181
+@orderId = paste-an-order-id-here
+
+### Customer error codes
+GET {{host}}/api/error-codes
+
+### Admin error codes (keyed "admin" catalog)
+GET {{host}}/api/admin/error-codes
+
+### 401 as a failed Result, in the envelope
+POST {{host}}/api/orders
+
+### Create an order: { "data": { ... }, "is_success": true, "status": 200, ... }
+POST {{host}}/api/orders
+X-User: alice
+
+### 400 validation errors (this app keeps the default 400 for Invalid)
+POST {{host}}/api/orders/{{orderId}}/lines
+X-User: alice
+Content-Type: application/json
+
+{ "sku": "", "quantity": 9 }
+
+### 400 orders_1004: nothing to pay for yet
+POST {{host}}/api/orders/{{orderId}}/pay
+X-User: alice

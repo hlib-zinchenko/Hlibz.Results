@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The customer-facing shop: its error codes are the ones the user app publishes. -->
+
+  <ItemGroup>
+    <!-- In your own app: PackageReference Include="Hlibz.Results.FluentValidation". -->
+    <ProjectReference Include="..\..\src\Hlibz.Results\Hlibz.Results.csproj" />
+    <ProjectReference Include="..\..\src\Hlibz.Results.FluentValidation\Hlibz.Results.FluentValidation.csproj" />
+  </ItemGroup>
+
+</Project>

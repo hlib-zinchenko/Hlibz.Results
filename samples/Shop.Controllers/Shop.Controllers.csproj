@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <!-- In your own app: PackageReference Include="Hlibz.Results.AspNetCore". -->
+    <ProjectReference Include="..\..\src\Hlibz.Results.AspNetCore\Hlibz.Results.AspNetCore.csproj" />
+    <ProjectReference Include="..\Shop.Admin\Shop.Admin.csproj" />
+  </ItemGroup>
+
+</Project>

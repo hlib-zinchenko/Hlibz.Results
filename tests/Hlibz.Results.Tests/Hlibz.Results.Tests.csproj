@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Hlibz.Results\Hlibz.Results.csproj" />
+  </ItemGroup>
+
+</Project>

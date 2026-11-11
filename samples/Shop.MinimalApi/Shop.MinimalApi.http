@@ -1,0 +1,69 @@
+# Run: dotnet run --project samples/Shop.MinimalApi
+@host = http://localhost:5180
+@orderId = paste-an-order-id-here
+
+### Customer error codes (orders_, payments_)
+GET {{host}}/api/error-codes
+
+### Admin error codes (also admin_): 401 without a user, 403 for a customer
+GET {{host}}/api/admin/error-codes
+X-User: root
+X-Role: admin
+
+### 401 from the auth gate, same body as every other error
+POST {{host}}/api/orders
+
+### Create an order
+POST {{host}}/api/orders
+X-User: alice
+X-Role: customer
+
+### 422 Invalid: validation errors keyed like the JSON
+POST {{host}}/api/orders/{{orderId}}/lines
+X-User: alice
+X-Role: customer
+Content-Type: application/json
+
+{ "sku": "", "quantity": 9 }
+
+### 400 orders_1002: not enough stock (TEE has 3)
+POST {{host}}/api/orders/{{orderId}}/lines
+X-User: alice
+X-Role: customer
+Content-Type: application/json
+
+{ "sku": "TEE", "quantity": 4 }
+
+### 200: add a line
+POST {{host}}/api/orders/{{orderId}}/lines
+X-User: alice
+X-Role: customer
+Content-Type: application/json
+
+{ "sku": "MUG", "quantity": 2 }
+
+### 403 orders_1003: someone else's order
+GET {{host}}/api/orders/{{orderId}}
+X-User: bob
+X-Role: customer
+
+### Admin: take the payment provider down
+PUT {{host}}/api/admin/payment-provider
+X-User: root
+X-Role: admin
+Content-Type: application/json
+
+{ "is_down": true }
+
+### 503 payments_1001: provider down (a 4th attempt within a minute is 429 rate_limited)
+POST {{host}}/api/orders/{{orderId}}/pay
+X-User: alice
+X-Role: customer
+
+### 409 admin_1001: refund an unpaid order
+POST {{host}}/api/admin/orders/{{orderId}}/refund
+X-User: root
+X-Role: admin
+Content-Type: application/json
+
+{ "amount": 5 }

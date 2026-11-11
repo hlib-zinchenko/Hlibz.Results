@@ -1,0 +1,39 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization.Policy;
+using Microsoft.Extensions.Options;
+
+namespace Hlibz.Results.AspNetCore.Internal;
+
+/// <summary>
+/// Gives the authorization gate's own <c>401</c>/<c>403</c> (no, invalid or expired credentials;
+/// a failed policy) the same body as every other error, on top of what the default handler does
+/// (status code, <c>WWW-Authenticate</c>).
+/// </summary>
+internal sealed class ErrorResponseAuthorizationResultHandler(IOptions<ResultHttpOptions> options)
+    : IAuthorizationMiddlewareResultHandler
+{
+    private readonly AuthorizationMiddlewareResultHandler _defaultHandler = new();
+
+    public async Task HandleAsync(
+        RequestDelegate next,
+        HttpContext context,
+        AuthorizationPolicy policy,
+        PolicyAuthorizationResult authorizeResult)
+    {
+        await _defaultHandler
+            .HandleAsync(next, context, policy, authorizeResult)
+            .ConfigureAwait(false);
+
+        if (authorizeResult.Succeeded || context.Response.HasStarted)
+        {
+            return;
+        }
+
+        ResultMessages messages = options.Value.Messages;
+        string message = authorizeResult.Challenged ? messages.Unauthorized : messages.Forbidden;
+
+        await context.Response
+            .WriteErrorAsync(message, code: null, context.RequestAborted)
+            .ConfigureAwait(false);
+    }
+}

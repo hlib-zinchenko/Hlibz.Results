@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Label="NuGet metadata">
+    <PackageId>Hlibz.Results</PackageId>
+    <Description>A small Result / Result&lt;T&gt; type for returning expected failures instead of throwing: a status (Success, Error, Invalid, NotFound, Unauthorized, Forbidden, Conflict, Unavailable), a message, a machine-readable error code and validation errors, plus Map/Bind and an error code catalog that collects every ErrorCode declared in your assemblies and rejects duplicates at startup. No dependencies. Pair it with Hlibz.Results.AspNetCore to turn results into HTTP responses with one error body.</Description>
+    <PackageTags>result;result-pattern;error-handling;error-codes;railway;functional;ddd</PackageTags>
+  </PropertyGroup>
+
+</Project>

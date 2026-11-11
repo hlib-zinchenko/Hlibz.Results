@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Label="NuGet metadata">
+    <PackageId>Hlibz.Results.AspNetCore</PackageId>
+    <Description>Turns Hlibz.Results into HTTP responses with one error body everywhere: result.ToHttpResult() for minimal APIs and result.ToActionResult() for controllers map Success/Error/Invalid/NotFound/Unauthorized/Forbidden/Conflict/Unavailable to 200/400/400/404/401/403/409/503 (remappable, e.g. 422 for validation), with { message, code, validation_errors } on every failure, the authorization gate's own 401/403 included. Optional Crunch-style envelope ({ data, is_success, status, message, code, validation_errors }), validation keys cased by your JSON naming policy per path segment, and an error code catalog endpoint listing every code your API returns.</Description>
+    <PackageTags>result;result-pattern;aspnetcore;minimal-api;controllers;error-handling;error-codes;api</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Hlibz.Results\Hlibz.Results.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hlibz.Results.AspNetCore.Tests" />
+  </ItemGroup>
+
+</Project>

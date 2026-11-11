@@ -1,4 +1,9 @@
+![Hlibz.Results.AspNetCore icon](https://raw.githubusercontent.com/hlib-zinchenko/Hlibz.Results/main/docs/icon.png)
+
 # Hlibz.Results.AspNetCore
+
+[![NuGet](https://img.shields.io/nuget/v/Hlibz.Results.AspNetCore.svg)](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)
+[![CI](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml)
 
 Turns [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) into HTTP responses with
 **one error body for every failure**: from minimal API endpoints and controllers to the

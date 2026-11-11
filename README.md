@@ -1,4 +1,15 @@
+![Hlibz.Results icon](https://raw.githubusercontent.com/hlib-zinchenko/Hlibz.Results/main/docs/icon.png)
+
 # Hlibz.Results
+
+[![CI](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/blob/main/LICENSE)<br>
+[![Hlibz.Results](https://img.shields.io/nuget/v/Hlibz.Results?label=Hlibz.Results)](https://www.nuget.org/packages/Hlibz.Results)
+[![downloads](https://img.shields.io/nuget/dt/Hlibz.Results?label=downloads)](https://www.nuget.org/packages/Hlibz.Results)<br>
+[![Hlibz.Results.AspNetCore](https://img.shields.io/nuget/v/Hlibz.Results.AspNetCore?label=Hlibz.Results.AspNetCore)](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)
+[![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.AspNetCore?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)<br>
+[![Hlibz.Results.FluentValidation](https://img.shields.io/nuget/v/Hlibz.Results.FluentValidation?label=Hlibz.Results.FluentValidation)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
+[![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.FluentValidation?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
 
 A small Result pattern for .NET APIs, with **error codes** and **one error body for every
 failure**: from your handlers, through minimal API endpoints or controllers, to the

@@ -1,4 +1,9 @@
+![Hlibz.Results.FluentValidation icon](https://raw.githubusercontent.com/hlib-zinchenko/Hlibz.Results/main/docs/icon.png)
+
 # Hlibz.Results.FluentValidation
+
+[![NuGet](https://img.shields.io/nuget/v/Hlibz.Results.FluentValidation.svg)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
+[![CI](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml)
 
 Turns a failed FluentValidation `ValidationResult` into a
 [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) failure carrying its validation

@@ -1,4 +1,9 @@
+![Hlibz.Results icon](https://raw.githubusercontent.com/hlib-zinchenko/Hlibz.Results/main/docs/icon.png)
+
 # Hlibz.Results
+
+[![NuGet](https://img.shields.io/nuget/v/Hlibz.Results.svg)](https://www.nuget.org/packages/Hlibz.Results)
+[![CI](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml)
 
 A small `Result` / `Result<T>` for returning expected failures instead of throwing: a status,
 a message, a machine-readable error code and validation errors. No dependencies.

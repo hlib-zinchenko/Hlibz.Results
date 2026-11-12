@@ -153,6 +153,24 @@ return result.ToEnvelopeHttpResult();   // or ToEnvelopeActionResult()
 Set `options.UseEnvelope = true` in `AddResultErrorResponses` so the auth gate and
 `WriteErrorAsync` use it too.
 
+### Returning results as they are
+
+In a minimal API, `WithResultEnvelopes()` on an endpoint or a route group lets handlers return
+a `Result` or `Result<T>` (or a `Task` of one) with no conversion call. Each result is sent as
+`ToEnvelopeHttpResult()` would send it, and the success response is documented in OpenAPI as
+`200 ResultEnvelope<T>` instead of the `Result<T>` ASP.NET Core would infer:
+
+```csharp
+RouteGroupBuilder orders = app.MapGroup("/api/orders").WithResultEnvelopes();
+
+orders.MapGet("{id:int}", (int id, OrderService service) => service.Find(id));  // Result<OrderDto>
+orders.MapDelete("{id:int}", (int id, OrderService service) => service.Delete(id));  // Result
+```
+
+Handlers that return anything else are left alone, so it's safe on a whole group. Document the
+failures on the endpoint (`.Produces<ResultEnvelope>(404)`). With your own envelope (below), the
+`200` is documented without a type, since its shape is yours.
+
 ### Your own envelope
 
 If your clients expect a different shape, build it from `EnvelopeContent` (status code, the

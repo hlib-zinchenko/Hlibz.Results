@@ -31,7 +31,10 @@ internal static class TestApp
         bool snakeCase = true,
         Action<IServiceCollection>? services = null)
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder();
+        // No appsettings.json watcher: the apps are never stopped, and on Linux each watcher holds
+        // one of the user's 128 inotify instances.
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(
+            ["--hostBuilder:reloadConfigOnChange=false"]);
         builder.WebHost.UseTestServer();
         builder.Logging.ClearProviders();
 

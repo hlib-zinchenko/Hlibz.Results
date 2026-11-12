@@ -110,10 +110,23 @@ public sealed class WithResultEnvelopesTests
     }
 
     [Fact]
+    public async Task WithResultEnvelopes_WithShortCircuitingFilter_SendsItsResponse()
+    {
+        using HttpClient client = await TestApp.StartAsync(app =>
+            app.MapGet("/", () => Result<OrderDto>.Success(new(7, "Ann")))
+                .WithResultEnvelopes()
+                .AddEndpointFilter((_, _) => ValueTask.FromResult<object?>(TypedResults.Conflict())));
+
+        using HttpResponseMessage response = await client.GetAsync("/", Ct);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
     public async Task WithResultEnvelopes_WithResultOfT_Documents200WithEnvelopeOfT()
     {
         IProducesResponseTypeMetadata response = Assert.Single(
-            await ResponsesAsync(app =>
+            await TestApp.ResponsesAsync(app =>
                 app.MapGet("/", () => Result<OrderDto>.NotFound()).WithResultEnvelopes()));
 
         Assert.Equal(StatusCodes.Status200OK, response.StatusCode);
@@ -125,7 +138,7 @@ public sealed class WithResultEnvelopesTests
     public async Task WithResultEnvelopes_WithResult_Documents200WithEnvelope()
     {
         IProducesResponseTypeMetadata response = Assert.Single(
-            await ResponsesAsync(app =>
+            await TestApp.ResponsesAsync(app =>
                 app.MapDelete("/", () => Result.Success()).WithResultEnvelopes()));
 
         Assert.Equal(typeof(ResultEnvelope), response.Type);
@@ -135,7 +148,7 @@ public sealed class WithResultEnvelopesTests
     public async Task WithResultEnvelopes_WithCreateEnvelope_Documents200WithoutType()
     {
         IProducesResponseTypeMetadata response = Assert.Single(
-            await ResponsesAsync(
+            await TestApp.ResponsesAsync(
                 app => app.MapGet("/", () => Result<OrderDto>.NotFound()).WithResultEnvelopes(),
                 options => options.CreateEnvelope = content => new { ok = content.IsSuccess }));
 
@@ -147,28 +160,9 @@ public sealed class WithResultEnvelopesTests
     public async Task WithResultEnvelopes_WithOtherHandler_KeepsItsDocumentation()
     {
         IProducesResponseTypeMetadata response = Assert.Single(
-            await ResponsesAsync(app =>
+            await TestApp.ResponsesAsync(app =>
                 app.MapGet("/", () => new OrderDto(8, "Bob")).WithResultEnvelopes()));
 
         Assert.Equal(typeof(OrderDto), response.Type);
-    }
-
-    private static async Task<IProducesResponseTypeMetadata[]> ResponsesAsync(
-        Action<WebApplication> map,
-        Action<ResultHttpOptions>? configure = null)
-    {
-        IEndpointRouteBuilder? routes = null;
-        using HttpClient client = await TestApp.StartAsync(
-            app =>
-            {
-                routes = app;
-                map(app);
-            },
-            configure);
-
-        Endpoint endpoint = Assert.Single(
-            routes!.DataSources.SelectMany(source => source.Endpoints),
-            item => item is RouteEndpoint { RoutePattern.RawText: "/" });
-        return [.. endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>()];
     }
 }

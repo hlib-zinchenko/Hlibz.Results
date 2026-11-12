@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -61,6 +63,28 @@ internal static class TestApp
 
         await app.StartAsync(TestContext.Current.CancellationToken);
         return app.GetTestClient();
+    }
+
+    /// <summary>
+    /// The responses documented for the app's endpoint at <c>/</c>.
+    /// </summary>
+    public static async Task<IProducesResponseTypeMetadata[]> ResponsesAsync(
+        Action<WebApplication> map,
+        Action<ResultHttpOptions>? configure = null)
+    {
+        IEndpointRouteBuilder? routes = null;
+        using HttpClient client = await StartAsync(
+            app =>
+            {
+                routes = app;
+                map(app);
+            },
+            configure);
+
+        Endpoint endpoint = Assert.Single(
+            routes!.DataSources.SelectMany(source => source.Endpoints),
+            item => item is RouteEndpoint { RoutePattern.RawText: "/" });
+        return [.. endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>()];
     }
 
     public static async Task<JsonElement> ReadJsonAsync(this HttpResponseMessage response)

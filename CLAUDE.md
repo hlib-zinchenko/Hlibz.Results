@@ -10,9 +10,11 @@ Three NuGet packages released together from one tag:
   (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog`. No dependencies, no ASP.NET.
 - `src/Hlibz.Results.AspNetCore`: result → HTTP for minimal APIs (`HttpResultExtensions`) and
   controllers (`ActionResultExtensions`), `ErrorResponse`, opt-in `ResultEnvelope`,
-  `ResultHttpOptions` (`AddResultErrorResponses`), `WithResultEnvelopes()` (handlers return a
-  `Result` as is: an endpoint filter sends the envelope, a `Finally` convention swaps the inferred
-  `200 Result<T>` for `200 ResultEnvelope<T>`; `Internal/ResultEnvelopeEndpoints`), the auth gate's error body
+  `ResultHttpOptions` (`AddResultErrorResponses`), `WithResultResponses()`/`WithResultEnvelopes()`
+  (handlers return a `Result` as is: an endpoint filter sends it as `ToHttpResult()`/
+  `ToEnvelopeHttpResult()` would, passing anything else through, and a `Finally` convention swaps
+  the inferred `200 Result<T>` for `200 T`/`200 ResultEnvelope<T>`; `Internal/ResultEndpoints`),
+  the auth gate's error body
   (`Internal/ErrorResponseAuthorizationResultHandler`), `WriteErrorAsync`, `AddErrorCodeCatalog` +
   `MapErrorCodes`. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
   `IErrorCodeCatalog`) and any number of named ones (`AddErrorCodeCatalog(name, assemblies)`,

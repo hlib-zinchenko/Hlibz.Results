@@ -7,6 +7,11 @@ namespace Hlibz.Results;
 /// or not) on any class in the given assemblies, so the codes an API can return are listed in one
 /// place without registering them by hand.
 /// </summary>
+/// <remarks>
+/// Nothing is scanned at runtime: the package's source generator lists each assembly's error
+/// codes when it compiles, and the catalog reads that list, so it is trimming-safe. An assembly
+/// that references Hlibz.Results but was compiled without the generator throws when scanned.
+/// </remarks>
 public sealed class ErrorCodeCatalog : IErrorCodeCatalog
 {
     private const BindingFlags MemberFlags = BindingFlags.Public | BindingFlags.Static;
@@ -40,9 +45,7 @@ public sealed class ErrorCodeCatalog : IErrorCodeCatalog
         List<ErrorCode> errorCodes =
         [
             .. assemblies
-                .SelectMany(assembly => assembly.GetTypes())
-                .Where(type => type.IsClass && !type.ContainsGenericParameters)
-                .SelectMany(ReadErrorCodes),
+                .SelectMany(ErrorCodesIn),
         ];
 
         // The same instance exposed twice (e.g. a field aliased by a property) is one code; two
@@ -66,6 +69,44 @@ public sealed class ErrorCodeCatalog : IErrorCodeCatalog
         return [.. errorCodes.OrderBy(errorCode => errorCode.Code, StringComparer.Ordinal)];
     }
 
+    /// <summary>
+    /// The error codes the source generator listed in <paramref name="assembly"/>. None for an
+    /// assembly that doesn't reference Hlibz.Results (or is Hlibz.Results), which can't declare
+    /// any; a dynamic one (Reflection.Emit), which no generator ran on, is scanned instead.
+    /// </summary>
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2026:Members annotated with 'RequiresUnreferencedCodeAttribute' require dynamic access otherwise can break functionality when trimming application code",
+        Justification = "Trimming removes only references nothing uses, and dynamic assemblies don't exist in a trimmed app.")]
+    private static IEnumerable<ErrorCode> ErrorCodesIn(Assembly assembly)
+    {
+        if (assembly.GetCustomAttribute<ErrorCodeManifestAttribute>() is { } manifest)
+        {
+            return manifest.ErrorCodes.Select(read => read()).OfType<ErrorCode>();
+        }
+
+        if (assembly.IsDynamic)
+        {
+            return assembly.GetTypes()
+                .Where(type => type.IsClass && !type.ContainsGenericParameters)
+                .SelectMany(ReadErrorCodes);
+        }
+
+        Assembly results = typeof(ErrorCode).Assembly;
+        bool referencesResults = assembly.GetReferencedAssemblies().Any(name =>
+            AssemblyName.ReferenceMatchesDefinition(name, results.GetName()));
+        return assembly == results || !referencesResults
+            ? []
+            : throw new InvalidOperationException(
+                $"{assembly.GetName().Name} has no list of error codes: the Hlibz.Results source "
+                + "generator didn't run when it was compiled. Reference the Hlibz.Results package "
+                + "from that project, and don't exclude its analyzers.");
+    }
+
+    [UnconditionalSuppressMessage(
+        "Trimming",
+        "IL2070:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method",
+        Justification = "Only for dynamic assemblies, which don't exist in a trimmed app.")]
     private static IEnumerable<ErrorCode> ReadErrorCodes(Type type)
     {
         IEnumerable<object?> fieldValues = type

@@ -51,3 +51,12 @@ jobs:
             grep -q "<icon>icon.png</icon>" package.nuspec
           done
           test "$(ls ./artifacts/*.nupkg | wc -l)" -eq 3
+          # The source generator ships inside Hlibz.Results, with the target that adds it to a
+          # project that gets the package indirectly.
+          unzip -l ./artifacts/Hlibz.Results.[0-9]*.nupkg > contents.txt
+          grep -qE " analyzers/dotnet/cs/Hlibz\.Results\.Generators\.dll$" contents.txt
+          grep -qE " buildTransitive/Hlibz\.Results\.targets$" contents.txt
+
+      # A project that gets the packages only indirectly compiles with the packed generator.
+      - name: Packed generator
+        run: .github/scripts/check-packed-generator.sh ./artifacts

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+      Runs the analyzer and generator on sources compiled in memory, against the reference set of
+      the test's own runtime. They are netstandard2.0, so one target framework is enough.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>net11.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Hlibz.Results\Hlibz.Results.csproj" />
+    <ProjectReference Include="..\..\src\Hlibz.Results.Generators\Hlibz.Results.Generators.csproj" />
+  </ItemGroup>
+
+</Project>

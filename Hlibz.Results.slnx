@@ -8,11 +8,13 @@
   <Folder Name="/src/">
     <Project Path="src/Hlibz.Results.AspNetCore/Hlibz.Results.AspNetCore.csproj" />
     <Project Path="src/Hlibz.Results.FluentValidation/Hlibz.Results.FluentValidation.csproj" />
+    <Project Path="src/Hlibz.Results.Generators/Hlibz.Results.Generators.csproj" />
     <Project Path="src/Hlibz.Results/Hlibz.Results.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Hlibz.Results.AspNetCore.Tests/Hlibz.Results.AspNetCore.Tests.csproj" />
     <Project Path="tests/Hlibz.Results.FluentValidation.Tests/Hlibz.Results.FluentValidation.Tests.csproj" />
+    <Project Path="tests/Hlibz.Results.Generators.Tests/Hlibz.Results.Generators.Tests.csproj" />
     <Project Path="tests/Hlibz.Results.Tests/Hlibz.Results.Tests.csproj" />
   </Folder>
 </Solution>

@@ -7,7 +7,14 @@ Guidance for Claude Code when working in this repository.
 Three NuGet packages released together from one tag:
 
 - `src/Hlibz.Results`: `Result`/`Result<T>`, `ResultStatus`, `ErrorCode`, `ResultExtensions`
-  (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog` (duplicates are found by code; only the same instance seen twice, an alias, is one code). No dependencies, no ASP.NET.
+  (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog` (duplicates are found by code; only the same instance seen twice, an alias, is one code; reads each assembly's generated `ErrorCodeManifestAttribute`, scans only a dynamic Reflection.Emit assembly, throws for a compiled one referencing Hlibz.Results without the list). `Result.Accept`/`IResultVisitor` (internal, visible to AspNetCore) reach a `Result<T>`'s typed code without reflection, for Native AOT. No dependencies, no ASP.NET.
+- `src/Hlibz.Results.Generators` (netstandard2.0, Roslyn 4.8, packed inside Hlibz.Results under
+  `analyzers/dotnet/cs` with `buildTransitive/Hlibz.Results.targets`): `ErrorCodeManifestGenerator`
+  writes each assembly's error code list, `ErrorCodeAnalyzer` warns (`HRES001`) about a code the
+  list can't name; `ErrorCodeSymbols` holds the rules the old reflection scan used. Tests and
+  samples (`samples/Directory.Build.props`) reference it as an analyzer. CI's
+  `.github/scripts/check-packed-generator.sh` builds an indirect consumer from the packed nupkg.
+  Rules are tracked in `AnalyzerReleases.*.md` and the README's "Build warnings".
 - `src/Hlibz.Results.AspNetCore`: result → HTTP for minimal APIs (`HttpResultExtensions`) and
   controllers (`ActionResultExtensions`), `ErrorResponse`, opt-in `ResultEnvelope`,
   `ResultHttpOptions` (`AddResultErrorResponses`), `WithResultResponses()`/`WithResultEnvelopes()`
@@ -20,7 +27,9 @@ Three NuGet packages released together from one tag:
   `MapErrorCodes`. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
   `IErrorCodeCatalog`) and any number of named ones (`AddErrorCodeCatalog(name, assemblies)`,
   keyed services), so each app/audience publishes only its own assemblies' codes
-  (`MapErrorCodes(pattern, name)`). Every response shape is built in `Internal/ResultResponses`; minimal API and
+  (`MapErrorCodes(pattern, name)`). Every response shape is built in `Internal/ResultResponses` and written through `JsonTypeInfo`
+  (`Internal/ResultsJsonContext`, source-generated metadata `AddResultErrorResponses` appends to
+  the minimal-API and MVC JSON options, is what serializes them under Native AOT); minimal API and
   MVC results defer to it at execution time (`DeferredHttpResult`/`DeferredActionResult`) so they
   can read options and the right JSON settings from the request's services.
   Envelopes: built-in `ResultEnvelope`, or the API's own via `ResultHttpOptions.CreateEnvelope`

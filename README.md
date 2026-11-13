@@ -146,6 +146,12 @@ Each catalog rejects duplicate codes at startup; the same assembly may be in sev
 controller, inject `IErrorCodeCatalog` for the default one and
 `[FromKeyedServices("admin")] IErrorCodeCatalog` for a named one.
 
+Nothing is scanned at runtime: Hlibz.Results' source generator lists each assembly's public
+static `ErrorCode` fields and properties as it compiles, and the catalog reads that list, so it
+is trimming-safe. An assembly that references Hlibz.Results but was compiled without the
+generator makes the catalog throw; one that doesn't reference it has no codes. A code the list
+can't name, in a private or protected nested class, is warning [`HRES001`](#build-warnings).
+
 ## Controllers
 
 ```csharp
@@ -300,6 +306,14 @@ if (!validation.IsValid)
 - **Redirecting sign-in schemes.** The auth gate writes its error body only on a 401 or 403. A
   scheme that answers with a redirect instead (cookies: 302 to the login or access denied page)
   keeps its redirect, with no body.
+
+## Build warnings
+
+Hlibz.Results' analyzer reports this as you build:
+
+| Id | Meaning |
+|---|---|
+| `HRES001` | A public static `ErrorCode` sits in a private or protected nested class, which the generated list of the assembly's codes can't name, so no catalog lists it. Make the class (and any class it is nested in) internal or public. |
 
 ## Samples
 

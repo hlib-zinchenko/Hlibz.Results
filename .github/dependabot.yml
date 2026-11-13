@@ -11,6 +11,8 @@ updates:
       default-days: 7
     ignore:
       - dependency-name: FluentValidation
+      # The Roslyn the generator compiles against is a deliberately low minimum, never bumped.
+      - dependency-name: Microsoft.CodeAnalysis.CSharp
     groups:
       nuget:
         patterns: ["*"]

@@ -64,7 +64,8 @@ only. `Result<T>` is a `Result`, and `IsSuccess` tells the compiler `Value` isn'
 `FromFailed` passes a failure on as another type; `Map`, `MapAsync` and `Bind` chain steps.
 
 `ErrorCodeCatalog` collects every public static `ErrorCode` declared in the assemblies you give
-it, sorted, and throws when two share a code.
+it, sorted, and throws when two share a code. The package's source generator lists each
+assembly's codes as it compiles, so nothing is scanned at runtime; the package is AOT-compatible.
 
 ## Related packages
 

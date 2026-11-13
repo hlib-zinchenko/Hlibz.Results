@@ -6,6 +6,28 @@
     <PackageTags>result;result-pattern;error-handling;error-codes;railway;functional;ddd</PackageTags>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <!--
+      The error code source generator ships inside this package (analyzers/dotnet/cs), plus a
+      buildTransitive target that adds it to a project referencing the package indirectly if the
+      SDK hasn't. Built first, never a dependency of its own.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Hlibz.Results.Generators\Hlibz.Results.Generators.csproj"
+                      ReferenceOutputAssembly="false"
+                      PrivateAssets="all" />
+    <None Include="..\Hlibz.Results.Generators\bin\$(Configuration)\netstandard2.0\Hlibz.Results.Generators.dll"
+          Pack="true"
+          PackagePath="analyzers/dotnet/cs"
+          Visible="false" />
+    <None Include="buildTransitive\Hlibz.Results.targets"
+          Pack="true"
+          PackagePath="buildTransitive" />
+  </ItemGroup>
+
   <!-- IResultVisitor and Result.Accept, for converting typed results without reflection. -->
   <ItemGroup>
     <InternalsVisibleTo Include="Hlibz.Results.AspNetCore" />

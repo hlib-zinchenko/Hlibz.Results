@@ -1,0 +1,20 @@
+<Project>
+  <!--
+      ErrorCodeCatalog reads the list of error codes the package's source generator writes into
+      every assembly that references Hlibz.Results, so each of them must compile with the
+      generator, including a project that gets this package indirectly (through a project
+      reference, or through Hlibz.Results.AspNetCore or Hlibz.Results.FluentValidation). The .NET 10 and 11 SDKs already
+      hand it to such projects, even though pack declares package dependencies with
+      exclude="Analyzers". This is the guard for a build that doesn't: it adds the generator only
+      when it's missing, once.
+  -->
+  <Target Name="_HlibzResultsAddGenerator"
+          AfterTargets="ResolvePackageDependenciesForBuild;ResolveNuGetPackageAssets">
+    <ItemGroup>
+      <_HlibzResultsGenerator Include="@(Analyzer)"
+                             Condition="'%(Filename)' == 'Hlibz.Results.Generators'" />
+      <Analyzer Include="$(MSBuildThisFileDirectory)../analyzers/dotnet/cs/Hlibz.Results.Generators.dll"
+                Condition="'@(_HlibzResultsGenerator)' == ''" />
+    </ItemGroup>
+  </Target>
+</Project>

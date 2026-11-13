@@ -10,6 +10,13 @@
             (Dependabot ignores it).
         -->
         <PackageVersion Include="FluentValidation" Version="11.0.0" />
+        <!--
+            The Roslyn the error code generator compiles against, which is the oldest compiler
+            that can load it: a deliberately low minimum (4.8), far below the .NET 10 SDK's, so
+            every SDK that can build a net10.0 project loads it. Raise it only when the generator
+            needs a newer Roslyn API (Dependabot ignores it).
+        -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
         <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
         <PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />

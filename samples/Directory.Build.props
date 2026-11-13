@@ -10,4 +10,14 @@
         <GenerateDocumentationFile>false</GenerateDocumentationFile>
     </PropertyGroup>
 
+    <!--
+        The error code generator every sample project compiles with, as the Hlibz.Results package
+        brings it to your own projects; ErrorCodeCatalog reads the list it writes.
+    -->
+    <ItemGroup>
+        <ProjectReference Include="$(MSBuildThisFileDirectory)../src/Hlibz.Results.Generators/Hlibz.Results.Generators.csproj"
+                          OutputItemType="Analyzer"
+                          ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
 </Project>

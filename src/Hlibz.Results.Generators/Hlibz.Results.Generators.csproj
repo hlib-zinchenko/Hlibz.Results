@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+      The source generator behind ErrorCodeCatalog: lists every public static ErrorCode field and
+      property of the assembly it runs on as an ErrorCodeManifestAttribute, which the catalog
+      reads instead of scanning types, and warns about one the generated code can't reach.
+      Not a package of its own: Hlibz.Results ships it under analyzers/dotnet/cs.
+      netstandard2.0 and Roslyn 4.8, a low minimum, so every SDK that builds net10.0 loads it.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsRoslynComponent>true</IsRoslynComponent>
+    <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+    <AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+  </ItemGroup>
+
+</Project>

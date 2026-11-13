@@ -149,6 +149,9 @@ public class Result<T> : Result
     public override string ToString() =>
         IsSuccess ? $"{nameof(ResultStatus.Success)}: {Value}" : base.ToString();
 
+    /// <inheritdoc/>
+    internal override TOut Accept<TOut>(IResultVisitor<TOut> visitor) => visitor.Visit(this);
+
     private static Result<T> Fail(ResultStatus status, ErrorCode errorCode)
     {
         ArgumentNullException.ThrowIfNull(errorCode);

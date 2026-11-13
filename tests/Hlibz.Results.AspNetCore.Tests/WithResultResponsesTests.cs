@@ -61,6 +61,40 @@ public sealed class WithResultResponsesTests
     }
 
     [Fact]
+    public async Task WithResultResponses_WithValueTypeResults_SendsTheirValues()
+    {
+        Guid id = Guid.Parse("4f1c2b7e-9a51-4d0e-8a43-3b6f0d2c9e11");
+        using HttpClient client = await TestApp.StartAsync(app =>
+        {
+            app.MapGet("/count", () => Result<int>.Success(42)).WithResultResponses();
+            app.MapGet("/id", () => Task.FromResult(Result<Guid>.Success(id))).WithResultResponses();
+            app.MapGet("/missing", () => Result<int>.NotFound("No count.")).WithResultResponses();
+        });
+
+        using HttpResponseMessage count = await client.GetAsync("/count", Ct);
+        using HttpResponseMessage guid = await client.GetAsync("/id", Ct);
+        using HttpResponseMessage missing = await client.GetAsync("/missing", Ct);
+
+        Assert.Equal(42, (await count.ReadJsonAsync()).GetInt32());
+        Assert.Equal(id, (await guid.ReadJsonAsync()).GetGuid());
+        Assert.Equal(HttpStatusCode.NotFound, missing.StatusCode);
+        Assert.Equal("No count.", (await missing.ReadJsonAsync()).GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task WithResultEnvelopes_WithValueTypeResult_SendsEnvelopeWithData()
+    {
+        using HttpClient client = await TestApp.StartAsync(app =>
+            app.MapGet("/", () => Result<int>.Success(42)).WithResultEnvelopes());
+
+        using HttpResponseMessage response = await client.GetAsync("/", Ct);
+        JsonElement body = await response.ReadJsonAsync();
+
+        Assert.True(body.GetProperty("is_success").GetBoolean());
+        Assert.Equal(42, body.GetProperty("data").GetInt32());
+    }
+
+    [Fact]
     public async Task WithResultResponses_WithResultWithoutValue_SendsEmptyBody()
     {
         using HttpClient client = await TestApp.StartAsync(app =>

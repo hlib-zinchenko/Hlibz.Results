@@ -6,4 +6,9 @@
     <PackageTags>result;result-pattern;error-handling;error-codes;railway;functional;ddd</PackageTags>
   </PropertyGroup>
 
+  <!-- IResultVisitor and Result.Accept, for converting typed results without reflection. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hlibz.Results.AspNetCore" />
+  </ItemGroup>
+
 </Project>

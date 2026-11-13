@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 using Microsoft.AspNetCore.Builder;
@@ -13,31 +14,6 @@ namespace Hlibz.Results.AspNetCore.Internal;
 internal static class ResultEndpoints
 {
     private const string JsonContentType = "application/json";
-
-    private static readonly MethodInfo ResponseConverter = typeof(ResultEndpoints)
-        .GetMethod(nameof(ToResponse), BindingFlags.Public | BindingFlags.Static)!;
-
-    private static readonly MethodInfo EnvelopeConverter = typeof(ResultEndpoints)
-        .GetMethod(nameof(ToEnvelope), BindingFlags.Public | BindingFlags.Static)!;
-
-    /// <summary>
-    /// Sends a <see cref="Result{T}"/> as <see cref="HttpResultExtensions.ToHttpResult{T}"/>
-    /// does. Public only so the converter can be bound without bypassing accessibility.
-    /// </summary>
-    /// <typeparam name="T">The type of the value.</typeparam>
-    /// <param name="result">The result, a <see cref="Result{T}"/>.</param>
-    /// <returns>The response.</returns>
-    public static IResult ToResponse<T>(Result result) => ((Result<T>)result).ToHttpResult();
-
-    /// <summary>
-    /// Sends a <see cref="Result{T}"/> as its envelope. Public only so the converter can be bound
-    /// without bypassing accessibility.
-    /// </summary>
-    /// <typeparam name="T">The type of the value.</typeparam>
-    /// <param name="result">The result, a <see cref="Result{T}"/>.</param>
-    /// <returns>The response.</returns>
-    public static IResult ToEnvelope<T>(Result result) =>
-        ((Result<T>)result).ToEnvelopeHttpResult();
 
     /// <summary>
     /// Adds the filter and the documentation to every endpoint <paramref name="builder"/>
@@ -116,22 +92,50 @@ internal static class ResultEndpoints
             return new ProducesResponseTypeMetadata(StatusCodes.Status200OK);
         }
 
-        Type envelopeType = resultType.IsGenericType
-            ? typeof(ResultEnvelope<>).MakeGenericType(resultType.GetGenericArguments())
-            : typeof(ResultEnvelope);
-        return new ProducesResponseTypeMetadata(
-            StatusCodes.Status200OK,
-            envelopeType,
-            [JsonContentType]);
+        return EnvelopeTypeOf(resultType) is { } envelopeType
+            ? new ProducesResponseTypeMetadata(StatusCodes.Status200OK, envelopeType, [JsonContentType])
+            : new ProducesResponseTypeMetadata(StatusCodes.Status200OK);
     }
 
+    /// <summary>
+    /// The envelope type documented for <paramref name="resultType"/>, or <see langword="null"/>
+    /// when Native AOT has no <c>ResultEnvelope&lt;T&gt;</c> for its <c>T</c> (the value type of a
+    /// result the app never sends as an envelope), so the response goes undocumented.
+    /// </summary>
+    [UnconditionalSuppressMessage(
+        "AOT",
+        "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.",
+        Justification = "Documentation only; a missing instantiation is caught and left undocumented.")]
+    private static Type? EnvelopeTypeOf(Type resultType)
+    {
+        if (!resultType.IsGenericType)
+        {
+            return typeof(ResultEnvelope);
+        }
+
+        try
+        {
+            return typeof(ResultEnvelope<>).MakeGenericType(resultType.GetGenericArguments());
+        }
+        catch (NotSupportedException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// The converter for a handler returning <paramref name="returnType"/>. A
+    /// <see cref="Result{T}"/> reaches its typed conversion through
+    /// <see cref="Result.Accept{TOut}"/>, which Native AOT compiles ahead of time for every
+    /// <c>T</c> the app returns, rather than through a generic method made at runtime. A handler
+    /// declared to return a plain <see cref="Result"/> is sent as one, whatever it returns.
+    /// </summary>
     private static Func<Result, IResult>? ConverterFor(Type returnType, bool envelope) =>
         ResultTypeOf(returnType) switch
         {
             null => null,
-            { IsGenericType: true } typed => (envelope ? EnvelopeConverter : ResponseConverter)
-                .MakeGenericMethod(typed.GetGenericArguments()[0])
-                .CreateDelegate<Func<Result, IResult>>(),
+            { IsGenericType: true } when envelope => static result => result.Accept(EnvelopeVisitor.Instance),
+            { IsGenericType: true } => static result => result.Accept(ResponseVisitor.Instance),
             _ when envelope => static result => result.ToEnvelopeHttpResult(),
             _ => static result => result.ToHttpResult(),
         };
@@ -158,5 +162,25 @@ internal static class ResultEndpoints
         }
 
         return typeof(Result).IsAssignableFrom(type) ? typeof(Result) : null;
+    }
+
+    /// <summary>Sends a result as <c>ToHttpResult()</c> does, typed.</summary>
+    private sealed class ResponseVisitor : IResultVisitor<IResult>
+    {
+        public static readonly ResponseVisitor Instance = new();
+
+        public IResult Visit(Result result) => result.ToHttpResult();
+
+        public IResult Visit<T>(Result<T> result) => result.ToHttpResult();
+    }
+
+    /// <summary>Sends a result as <c>ToEnvelopeHttpResult()</c> does, typed.</summary>
+    private sealed class EnvelopeVisitor : IResultVisitor<IResult>
+    {
+        public static readonly EnvelopeVisitor Instance = new();
+
+        public IResult Visit(Result result) => result.ToEnvelopeHttpResult();
+
+        public IResult Visit<T>(Result<T> result) => result.ToEnvelopeHttpResult();
     }
 }

@@ -225,6 +225,16 @@ public class Result
     }
 
     /// <summary>
+    /// Calls <paramref name="visitor"/>'s overload for this result's type:
+    /// <see cref="IResultVisitor{TOut}.Visit(Result)"/> here, the generic one for a
+    /// <see cref="Result{T}"/>.
+    /// </summary>
+    /// <typeparam name="TOut">What the visit returns.</typeparam>
+    /// <param name="visitor">The visitor.</param>
+    /// <returns>What the visit returned.</returns>
+    internal virtual TOut Accept<TOut>(IResultVisitor<TOut> visitor) => visitor.Visit(this);
+
+    /// <summary>
     /// Throws unless <paramref name="result"/> is a failure.
     /// </summary>
     /// <param name="result">The result to check.</param>

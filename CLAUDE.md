@@ -46,7 +46,9 @@ validation, `Unavailable` = dependency down) and `ResultHttpOptions.StatusCodes`
 
 ## Requires
 
-* .NET 11 SDK, plus the .NET 8, 9 and 10 runtimes to run every test target.
+* The .NET SDK `global.json` pins (11.0.100, patches roll forward; Dependabot bumps it), plus
+  the .NET 10 runtime to run both test targets. Pinned because warnings are errors and
+  `AnalysisMode=All`: a new SDK feature band brings new analyzer rules.
 
 ## Commands
 
@@ -64,7 +66,7 @@ StyleCop + Sonar + `AnalysisMode=All`, warnings as errors; every public member h
 (CS1591 on for `src`). Explicit types, no `var`. Tests: xUnit v3 on Microsoft Testing Platform,
 named `Subject_WithCondition_ExpectedOutcome`. Versions are central (`Directory.Packages.props`);
 the shared NuGet metadata and `Version` live in `Directory.Build.props`, release by pushing a
-`vX.Y.Z` tag.
+`vX.Y.Z` tag (see Releasing).
 
 Release policy: the three packages always ship together under one version (lockstep), even when
 only one changed. Dependencies are minimums, not the latest: FluentValidation stays at the oldest
@@ -75,3 +77,14 @@ API or a FluentValidation major breaks the members it uses.
 Each package has its own `src/<Package>/README.md` (packed by `src/Directory.Build.props`, shown
 on its nuget.org page): short, with absolute links, since relative ones break on nuget.org. The
 root `README.md` is the full documentation; keep them in step when an API changes.
+
+## Releasing
+
+1. Set `Version` in `Directory.Build.props`, commit, then push the tag `vX.Y.Z`.
+2. The user approves the `release` environment run.
+3. Once the run succeeds and
+   `https://api.nuget.org/v3-flatcontainer/<lowercase id>/index.json` lists the version, Claude
+   creates the GitHub release that `PackageReleaseNotes` links to:
+   `gh release create vX.Y.Z --verify-tag --title X.Y.Z [--prerelease when the version has a suffix] --notes-file <notes>`.
+   Claude writes the notes from `git log <previous tag>..vX.Y.Z`: breaking changes first, then
+   features and fixes, then one nuget.org link per package. Nothing is attached.

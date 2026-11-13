@@ -42,4 +42,10 @@ M:Hlibz.Results.FluentValidation.ValidationResultExtensions.ToInvalidResult``1(F
 Works with FluentValidation 11.0.0 and later: reference the version you want in your app and
 NuGet uses it.
 
-Full documentation and samples: [https://github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).
+## Related packages
+
+- [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types.
+- [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore): results
+  to HTTP responses with one error body, for minimal APIs and controllers.
+
+Full documentation and samples: [github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).

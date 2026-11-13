@@ -72,5 +72,7 @@ it, sorted, and throws when two share a code.
   to HTTP responses with one error body, for minimal APIs and controllers.
 - [Hlibz.Results.FluentValidation](https://www.nuget.org/packages/Hlibz.Results.FluentValidation):
   a failed `ValidationResult` to a failure.
+- [Hlibz.Paging](https://www.nuget.org/packages/Hlibz.Paging): paging and sorting; a bad sort
+  string becomes `Result.Invalid`.
 
-Full documentation and samples: [https://github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).
+Full documentation and samples: [github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).

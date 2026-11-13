@@ -6,6 +6,10 @@
     <PackageTags>result;result-pattern;aspnetcore;minimal-api;controllers;error-handling;error-codes;api</PackageTags>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>

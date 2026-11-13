@@ -9,6 +9,15 @@ namespace Hlibz.Results.AspNetCore;
 public static class ErrorCodeEndpointRouteBuilderExtensions
 {
     /// <summary>
+    /// Why mapping the endpoint isn't trimming- or AOT-safe, as a warning on the caller: the same
+    /// as a <c>MapGet</c> given a delegate in a library, which ASP.NET Core's Request Delegate
+    /// Generator never sees.
+    /// </summary>
+    private const string MapGetWarning =
+        "MapErrorCodes maps its endpoint with MapGet(pattern, delegate), which binds the handler "
+        + "through RequestDelegateFactory at startup.";
+
+    /// <summary>
     /// Maps <c>GET <paramref name="pattern"/></c> to the list of every error code
     /// (<c>{ code, message }</c>) in a registered <see cref="IErrorCodeCatalog"/>, so clients can
     /// see every code a failure's <c>code</c> can hold. Map it once per catalog to expose, say,
@@ -20,6 +29,8 @@ public static class ErrorCodeEndpointRouteBuilderExtensions
     /// <see cref="ResultServiceCollectionExtensions.AddErrorCodeCatalog(IServiceCollection, string, IEnumerable{System.Reflection.Assembly})"/>,
     /// or <see langword="null"/> for the default catalog.</param>
     /// <returns>The endpoint's builder, to add a name, tags, a group name or authorization.</returns>
+    [RequiresUnreferencedCode(MapGetWarning)]
+    [RequiresDynamicCode(MapGetWarning)]
     public static RouteHandlerBuilder MapErrorCodes(
         this IEndpointRouteBuilder endpoints,
         [StringSyntax("Route")] string pattern = "api/error-codes",

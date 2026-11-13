@@ -15,7 +15,10 @@ public static class ResultServiceCollectionExtensions
     /// <summary>
     /// Configures how results are written (<see cref="ResultHttpOptions"/>) and makes the
     /// authorization gate's <c>401</c>/<c>403</c> carry the same error body as every other
-    /// failure. Replaces any other <see cref="IAuthorizationMiddlewareResultHandler"/>.
+    /// failure. Replaces any other <see cref="IAuthorizationMiddlewareResultHandler"/>. Also adds
+    /// the System.Text.Json metadata of <see cref="ErrorResponse"/> and
+    /// <see cref="ResultEnvelope"/>, generated at compile time, to the app's JSON options (after
+    /// its own resolvers), so they serialize under Native AOT.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Changes to the default options, if any.</param>
@@ -34,6 +37,13 @@ public static class ResultServiceCollectionExtensions
         services.AddSingleton<
             IAuthorizationMiddlewareResultHandler,
             ErrorResponseAuthorizationResultHandler>();
+
+        // The error body and built-in envelope's metadata, generated at compile time, after the
+        // app's own resolvers: what lets them serialize under Native AOT.
+        services.ConfigureHttpJsonOptions(json =>
+            json.SerializerOptions.TypeInfoResolverChain.Add(ResultsJsonContext.Default));
+        services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(json =>
+            json.JsonSerializerOptions.TypeInfoResolverChain.Add(ResultsJsonContext.Default));
         return services;
     }
 

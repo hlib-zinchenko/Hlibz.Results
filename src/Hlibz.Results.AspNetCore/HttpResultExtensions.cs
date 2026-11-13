@@ -76,14 +76,14 @@ public static class HttpResultExtensions
                 json));
     }
 
-    private static JsonHttpResult<object> Envelope(
+    private static IResult Envelope(
         object envelope,
         Result result,
         ResultHttpOptions options,
         JsonSerializerOptions json) =>
-        TypedResults.Json(
+        Microsoft.AspNetCore.Http.Results.Json(
             envelope,
-            json,
+            json.GetTypeInfo(envelope.GetType()),
             statusCode: ResultResponses.EnvelopeHttpStatusCode(
                 ResultResponses.StatusCodeFor(result.Status, options),
                 options));
@@ -94,6 +94,6 @@ public static class HttpResultExtensions
         JsonSerializerOptions json) =>
         TypedResults.Json(
             ResultResponses.ToErrorResponse(result, options, json),
-            json,
+            ResultResponses.TypeInfo<ErrorResponse>(json),
             statusCode: ResultResponses.StatusCodeFor(result.Status, options));
 }

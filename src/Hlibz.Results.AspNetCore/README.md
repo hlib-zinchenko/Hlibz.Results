@@ -52,9 +52,9 @@ For clients that want one shape for every body, success included, there is an op
 as HTTP 200 always. The error code catalog publishes every code your app can return, per app if
 you have several.
 
-In a Native AOT app (reflection-based JSON off), add `ErrorResponse`, `ResultEnvelope` and the
-`ResultEnvelope<T>`s you return to your `JsonSerializerContext`, or error responses fail with a
-500.
+AOT-compatible: `AddResultErrorResponses` adds compile-time JSON metadata for `ErrorResponse`
+and `ResultEnvelope`. In a Native AOT app (reflection-based JSON off), add the
+`ResultEnvelope<T>`s and values you return to your `JsonSerializerContext`.
 
 ## Related packages
 

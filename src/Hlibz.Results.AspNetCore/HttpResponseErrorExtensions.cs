@@ -32,13 +32,19 @@ public static class HttpResponseErrorExtensions
 
         if (!options.UseEnvelope)
         {
-            return response.WriteAsJsonAsync(error, json, cancellationToken);
+            return response.WriteAsJsonAsync(
+                error,
+                ResultResponses.TypeInfo<ErrorResponse>(json),
+                cancellationToken: cancellationToken);
         }
 
         object envelope = ResultResponses.ToEnvelope(error, response.StatusCode, options);
         response.StatusCode =
             ResultResponses.EnvelopeHttpStatusCode(response.StatusCode, options);
-        return response.WriteAsJsonAsync(envelope, envelope.GetType(), json, cancellationToken);
+        return response.WriteAsJsonAsync(
+            envelope,
+            json.GetTypeInfo(envelope.GetType()),
+            cancellationToken: cancellationToken);
     }
 
     /// <summary>

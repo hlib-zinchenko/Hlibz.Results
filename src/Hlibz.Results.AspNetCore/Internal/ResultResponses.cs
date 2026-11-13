@@ -131,6 +131,21 @@ internal static class ResultResponses
         return formatted;
     }
 
+    /// <summary>
+    /// The metadata <paramref name="json"/> serializes a <typeparamref name="T"/> with: through
+    /// its resolvers, so the app's own settings apply and, under Native AOT, a source-generated
+    /// context (<see cref="ResultsJsonContext"/> or the app's) rather than reflection.
+    /// </summary>
+    /// <typeparam name="T">The type to write.</typeparam>
+    /// <param name="json">The JSON settings.</param>
+    /// <returns>The metadata.</returns>
+    [SuppressMessage(
+        "Usage",
+        "CA2263:Prefer generic overload when type is known",
+        Justification = "GetTypeInfo<T>() is new in .NET 11; this compiles for .NET 10 too.")]
+    public static System.Text.Json.Serialization.Metadata.JsonTypeInfo<T> TypeInfo<T>(JsonSerializerOptions json) =>
+        (System.Text.Json.Serialization.Metadata.JsonTypeInfo<T>)json.GetTypeInfo(typeof(T));
+
     public static ResultHttpOptions GetOptions(IServiceProvider services) =>
         services.GetService<IOptions<ResultHttpOptions>>()?.Value ?? new ResultHttpOptions();
 

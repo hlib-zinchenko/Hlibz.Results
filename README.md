@@ -288,11 +288,15 @@ if (!validation.IsValid)
 - **Your own envelope in OpenAPI.** The `ToEnvelope…` methods declare the built-in envelope
   type, so describe a `CreateEnvelope` shape yourself (`.Produces<ApiEnvelope>()` or
   `[ProducesResponseType]`).
-- **Native AOT and reflection-free JSON.** The error body, the envelopes and the error code
-  list are serialized with the app's JSON options. In an app with reflection-based JSON off
-  (Native AOT, the `webapiaot` template), add `ErrorResponse`, `ResultEnvelope`, each
-  `ResultEnvelope<T>` you return and `IReadOnlyList<ErrorCode>` to your `JsonSerializerContext`;
-  otherwise every error response, the auth gate's included, fails with a 500.
+- **Native AOT and reflection-free JSON.** The packages are marked AOT-compatible. The error
+  body, the envelopes and the error code list are serialized with the app's JSON options, and
+  `AddResultErrorResponses` adds compile-time metadata for `ErrorResponse`, `ResultEnvelope` and
+  `IReadOnlyList<ErrorCode>` to them (after your own resolvers, with your naming policy). In an
+  app with reflection-based JSON off (Native AOT, the `webapiaot` template), add each
+  `ResultEnvelope<T>` and value type you return, and your own `CreateEnvelope` shape, to your
+  `JsonSerializerContext`. `WithResultResponses()`/`WithResultEnvelopes()` convert a
+  `Result<T>` without reflection, value types included. `MapErrorCodes` maps a delegate
+  endpoint, so it carries ASP.NET Core's usual trimming warning.
 - **Redirecting sign-in schemes.** The auth gate writes its error body only on a 401 or 403. A
   scheme that answers with a redirect instead (cookies: 302 to the login or access denied page)
   keeps its redirect, with no body.

@@ -1,8 +1,11 @@
 using System.Net;
 using System.Text.Json;
 
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hlibz.Results.AspNetCore.Tests;
 
@@ -65,6 +68,35 @@ public sealed class AuthorizationAndErrorWriterTests
     }
 
     [Fact]
+    public async Task AuthorizationGate_WithCookieRedirect_KeepsRedirectWithoutBody()
+    {
+        using HttpClient client = await StartWithCookieEndpointAsync();
+
+        using HttpResponseMessage response = await client.GetAsync("/account", Ct);
+        string body = await response.Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.StartsWith("/Account/Login", response.Headers.Location?.PathAndQuery, StringComparison.Ordinal);
+        Assert.Empty(body);
+    }
+
+    [Fact]
+    public async Task AuthorizationGate_WithCookieRedirectAndEnvelopeAlwaysOk_KeepsRedirect()
+    {
+        using HttpClient client = await StartWithCookieEndpointAsync(options =>
+        {
+            options.UseEnvelope = true;
+            options.EnvelopeAlwaysOk = true;
+        });
+
+        using HttpResponseMessage response = await client.GetAsync("/account", Ct);
+        string body = await response.Content.ReadAsStringAsync(Ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Empty(body);
+    }
+
+    [Fact]
     public async Task WriteErrorAsync_FromMiddleware_UsesStatusDefaultMessageAndJsonSettings()
     {
         using HttpClient client = await TestApp.StartAsync(app => app.Use(
@@ -122,4 +154,19 @@ public sealed class AuthorizationAndErrorWriterTests
                 .MapGet("/admin", () => Result.Success().ToHttpResult())
                 .RequireAuthorization(TestApp.AdminPolicy),
             configure);
+
+    /// <summary>
+    /// An endpoint behind cookie authentication, whose challenge redirects to a login page.
+    /// </summary>
+    private static Task<HttpClient> StartWithCookieEndpointAsync(
+        Action<ResultHttpOptions>? configure = null) =>
+        TestApp.StartAsync(
+            app => app
+                .MapGet("/account", () => Result.Success().ToHttpResult())
+                .RequireAuthorization(
+                    new AuthorizationPolicyBuilder(CookieAuthenticationDefaults.AuthenticationScheme)
+                        .RequireAuthenticatedUser()
+                        .Build()),
+            configure,
+            services: services => services.AddAuthentication().AddCookie());
 }

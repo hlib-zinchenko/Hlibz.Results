@@ -26,14 +26,25 @@ public sealed class ErrorCodeCatalogTests
     [Fact]
     public void Validate_WithDuplicateCodes_Throws()
     {
-        ErrorCodeCatalog catalog = new([BuildAssemblyWithDuplicate()]);
+        ErrorCodeCatalog catalog = new([BuildAssemblyWithDuplicate("One.", "Two.")]);
 
         InvalidOperationException exception =
             Assert.Throws<InvalidOperationException>(catalog.Validate);
         Assert.Contains("dup_1", exception.Message, StringComparison.Ordinal);
     }
 
-    private static AssemblyBuilder BuildAssemblyWithDuplicate()
+    [Fact]
+    public void Validate_WithEqualCodesDeclaredTwice_Throws()
+    {
+        // Two declarations that happen to be equal records are still two codes, not one alias.
+        ErrorCodeCatalog catalog = new([BuildAssemblyWithDuplicate("Same.", "Same.")]);
+
+        InvalidOperationException exception =
+            Assert.Throws<InvalidOperationException>(catalog.Validate);
+        Assert.Contains("dup_1", exception.Message, StringComparison.Ordinal);
+    }
+
+    private static AssemblyBuilder BuildAssemblyWithDuplicate(string firstMessage, string secondMessage)
     {
         AssemblyBuilder assembly = AssemblyBuilder.DefineDynamicAssembly(
             new AssemblyName("Duplicates"),
@@ -49,8 +60,8 @@ public sealed class ErrorCodeCatalogTests
             typeof(ErrorCode),
             FieldAttributes.Public | FieldAttributes.Static);
         Type built = type.CreateType();
-        built.GetField(first.Name)!.SetValue(null, new ErrorCode("dup_1", "One."));
-        built.GetField(second.Name)!.SetValue(null, new ErrorCode("dup_1", "Two."));
+        built.GetField(first.Name)!.SetValue(null, new ErrorCode("dup_1", firstMessage));
+        built.GetField(second.Name)!.SetValue(null, new ErrorCode("dup_1", secondMessage));
         return assembly;
     }
 }

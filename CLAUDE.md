@@ -7,7 +7,7 @@ Guidance for Claude Code when working in this repository.
 Three NuGet packages released together from one tag:
 
 - `src/Hlibz.Results`: `Result`/`Result<T>`, `ResultStatus`, `ErrorCode`, `ResultExtensions`
-  (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog`. No dependencies, no ASP.NET.
+  (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog` (duplicates are found by code; only the same instance seen twice, an alias, is one code). No dependencies, no ASP.NET.
 - `src/Hlibz.Results.AspNetCore`: result → HTTP for minimal APIs (`HttpResultExtensions`) and
   controllers (`ActionResultExtensions`), `ErrorResponse`, opt-in `ResultEnvelope`,
   `ResultHttpOptions` (`AddResultErrorResponses`), `WithResultResponses()`/`WithResultEnvelopes()`
@@ -15,7 +15,8 @@ Three NuGet packages released together from one tag:
   `ToEnvelopeHttpResult()` would, passing anything else through, and a `Finally` convention swaps
   the inferred `200 Result<T>` for `200 T`/`200 ResultEnvelope<T>`; `Internal/ResultEndpoints`),
   the auth gate's error body
-  (`Internal/ErrorResponseAuthorizationResultHandler`), `WriteErrorAsync`, `AddErrorCodeCatalog` +
+  (`Internal/ErrorResponseAuthorizationResultHandler`, only on a 401/403: a scheme's redirect,
+  such as the cookie login 302, is left as it is), `WriteErrorAsync`, `AddErrorCodeCatalog` +
   `MapErrorCodes`. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
   `IErrorCodeCatalog`) and any number of named ones (`AddErrorCodeCatalog(name, assemblies)`,
   keyed services), so each app/audience publishes only its own assemblies' codes

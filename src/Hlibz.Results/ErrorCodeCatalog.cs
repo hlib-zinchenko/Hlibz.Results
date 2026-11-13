@@ -45,8 +45,9 @@ public sealed class ErrorCodeCatalog : IErrorCodeCatalog
                 .SelectMany(ReadErrorCodes),
         ];
 
-        // The same instance exposed twice (e.g. a field aliased by a property) is one code.
-        errorCodes = [.. errorCodes.Distinct()];
+        // The same instance exposed twice (e.g. a field aliased by a property) is one code; two
+        // declarations are two codes, even when they are equal records.
+        errorCodes = [.. errorCodes.Distinct(ReferenceEqualityComparer.Instance).Cast<ErrorCode>()];
 
         string[] duplicateCodes =
         [

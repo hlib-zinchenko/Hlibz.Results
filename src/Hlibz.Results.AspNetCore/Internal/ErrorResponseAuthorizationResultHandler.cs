@@ -24,7 +24,13 @@ internal sealed class ErrorResponseAuthorizationResultHandler(IOptions<ResultHtt
             .HandleAsync(next, context, policy, authorizeResult)
             .ConfigureAwait(false);
 
-        if (authorizeResult.Succeeded || context.Response.HasStarted)
+        // A scheme that answers with a redirect (cookies: 302 to the login or access denied page)
+        // keeps its response: a body there means nothing, and with EnvelopeAlwaysOk it would turn
+        // the redirect into a 200 the browser doesn't follow.
+        if (authorizeResult.Succeeded
+            || context.Response.HasStarted
+            || context.Response.StatusCode is not (StatusCodes.Status401Unauthorized
+                or StatusCodes.Status403Forbidden))
         {
             return;
         }

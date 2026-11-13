@@ -21,7 +21,7 @@ authorization gate's own 401/403 and anything your middleware writes.
 | `Hlibz.Results.AspNetCore` | `ToHttpResult()` (minimal APIs), `ToActionResult()` (controllers), `ErrorResponse`, the optional envelope, the auth gate's error body, `WriteErrorAsync`, `MapErrorCodes`. |
 | `Hlibz.Results.FluentValidation` | `validationResult.ToErrorResult()` / `validationResult.ToInvalidResult()`. |
 
-Targets .NET 8, 9, 10 and 11.
+Targets .NET 10 and 11.
 
 ## Why another Result library?
 
@@ -277,22 +277,43 @@ if (!validation.IsValid)
 
 `validation.ToErrors()` gives the raw errors dictionary if you build the failure yourself.
 
+## Limitations
+
+- **`[ApiController]` model-binding failures.** Controllers with `[ApiController]` answer them
+  (malformed JSON, say) with ASP.NET Core's own `ProblemDetails`, not `ErrorResponse`; set
+  `InvalidModelStateResponseFactory` if you want those in the same shape.
+- **One authorization result handler.** `AddResultErrorResponses` registers an
+  `IAuthorizationMiddlewareResultHandler` for the auth gate's 401/403, which replaces any other
+  handler you registered.
+- **Your own envelope in OpenAPI.** The `ToEnvelope…` methods declare the built-in envelope
+  type, so describe a `CreateEnvelope` shape yourself (`.Produces<ApiEnvelope>()` or
+  `[ProducesResponseType]`).
+
 ## Samples
 
 [`samples/`](samples/README.md) has a small shop as a minimal API app and a controllers app,
 with customer and admin error codes in separate assemblies, and a `.http` file for every
 failure.
 
-Controllers with `[ApiController]` answer model-binding failures (e.g. malformed JSON) with
-ASP.NET Core's own `ProblemDetails`, not `ErrorResponse`; set `InvalidModelStateResponseFactory`
-if you want those in the same shape.
+## Related packages
+
+- [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints):
+  minimal API endpoints as classes. Set its FluentValidation `OnFailure` to
+  `(result, _) => result.ToErrorResult().ToHttpResult()` and a failed validation gets the same
+  error body.
+- [Hlibz.Paging](https://www.nuget.org/packages/Hlibz.Paging): paging and sorting; a bad sort
+  string becomes `Result.Invalid(new Dictionary<string, string[]> { ["sort"] = [error] })`.
+- [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore):
+  OpenAPI transformers for Microsoft.AspNetCore.OpenApi.
 
 ## Versioning
 
-The three packages are released together under one version from one `vX.Y.Z` tag, so matching
-versions always go together. Dependencies are declared as minimums (FluentValidation 11.0.0 and
-later), so a new FluentValidation or ASP.NET Core release needs no new Hlibz.Results release:
-reference the newer version in your app and NuGet uses it.
+Every package in this repository is released under one version, from one `vX.Y.Z` tag, so
+matching versions always go together. Dependencies are declared as minimums (FluentValidation
+11.0.0 and later), so a new FluentValidation or ASP.NET Core release needs no new Hlibz.Results
+release: reference the newer version in your app and NuGet uses it. 2.0.0 drops .NET 8 and 9.
+
+Release notes: [GitHub Releases](https://github.com/hlib-zinchenko/Hlibz.Results/releases).
 
 ## License
 

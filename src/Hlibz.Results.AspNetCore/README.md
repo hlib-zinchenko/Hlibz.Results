@@ -53,8 +53,10 @@ as HTTP 200 always. The error code catalog publishes every code your app can ret
 you have several.
 
 AOT-compatible: `AddResultErrorResponses` adds compile-time JSON metadata for `ErrorResponse`
-and `ResultEnvelope`. In a Native AOT app (reflection-based JSON off), add the
-`ResultEnvelope<T>`s and values you return to your `JsonSerializerContext`.
+and `ResultEnvelope`. In a Native AOT app (reflection-based JSON off), add to your
+`JsonSerializerContext` each `Result` or `Result<T>` a minimal API handler returns (ASP.NET Core
+asks for its metadata when it builds the endpoint, even under `WithResultResponses()`), and the
+`ResultEnvelope<T>`s and values you return.
 
 ## Related packages
 

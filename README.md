@@ -298,9 +298,25 @@ if (!validation.IsValid)
   body, the envelopes and the error code list are serialized with the app's JSON options, and
   `AddResultErrorResponses` adds compile-time metadata for `ErrorResponse`, `ResultEnvelope` and
   `IReadOnlyList<ErrorCode>` to them (after your own resolvers, with your naming policy). In an
-  app with reflection-based JSON off (Native AOT, the `webapiaot` template), add each
-  `ResultEnvelope<T>` and value type you return, and your own `CreateEnvelope` shape, to your
-  `JsonSerializerContext`. `WithResultResponses()`/`WithResultEnvelopes()` convert a
+  app with reflection-based JSON off (Native AOT, the `webapiaot` template), add to your
+  `JsonSerializerContext` each `Result` or `Result<T>` a minimal API handler returns, each
+  `ResultEnvelope<T>` and value type you return, and your own `CreateEnvelope` shape. The
+  handler's return type is needed even under `WithResultResponses()`/`WithResultEnvelopes()`,
+  which turn the result into an `IResult` before anything is written: ASP.NET Core's generated
+  endpoint code asks for its metadata when it builds the endpoint, and without it every request
+  fails with a `NotSupportedException`.
+
+  ```csharp
+  [JsonSerializable(typeof(Result))]
+  [JsonSerializable(typeof(Result<OrderDto>))]
+  [JsonSerializable(typeof(ResultEnvelope<OrderDto>))]
+  internal sealed partial class AppJsonContext : JsonSerializerContext;
+
+  builder.Services.ConfigureHttpJsonOptions(json =>
+      json.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default));
+  ```
+
+  `WithResultResponses()`/`WithResultEnvelopes()` convert a
   `Result<T>` without reflection, value types included. `MapErrorCodes` maps a delegate
   endpoint, so it carries ASP.NET Core's usual trimming warning.
 - **Redirecting sign-in schemes.** The auth gate writes its error body only on a 401 or 403. A

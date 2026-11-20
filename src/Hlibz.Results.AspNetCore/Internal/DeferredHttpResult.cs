@@ -2,20 +2,20 @@ namespace Hlibz.Results.AspNetCore.Internal;
 
 /// <summary>
 /// A minimal API result that builds its real response only when executed, once the request's
-/// <see cref="ResultHttpOptions"/> and JSON settings can be read from its services.
+/// <see cref="ResultHttpOptions"/>, JSON settings and endpoint can be read.
 /// </summary>
-/// <param name="build">Builds the response from the options and JSON settings.</param>
-internal sealed class DeferredHttpResult(
-    Func<ResultHttpOptions, JsonSerializerOptions, IResult> build)
-    : IResult
+/// <param name="build">Builds the response from the request's <see cref="ResultResponseContext"/>.</param>
+internal sealed class DeferredHttpResult(Func<ResultResponseContext, IResult> build) : IResult
 {
     public Task ExecuteAsync(HttpContext httpContext)
     {
         ArgumentNullException.ThrowIfNull(httpContext);
         IServiceProvider services = httpContext.RequestServices;
         return build(
-                ResultResponses.GetOptions(services),
-                ResultResponses.GetHttpJsonOptions(services))
+                ResultResponses.CreateContext(
+                    httpContext,
+                    ResultResponses.GetOptions(services),
+                    ResultResponses.GetHttpJsonOptions(services)))
             .ExecuteAsync(httpContext);
     }
 }

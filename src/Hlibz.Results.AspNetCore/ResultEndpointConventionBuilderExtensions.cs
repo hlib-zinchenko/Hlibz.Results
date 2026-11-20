@@ -13,8 +13,11 @@ public static class ResultEndpointConventionBuilderExtensions
     /// Sends the <see cref="Result"/> or <see cref="Result{T}"/> an endpoint's handler returns
     /// (optionally in a <see cref="Task{TResult}"/> or <see cref="ValueTask{TResult}"/>) exactly
     /// as <see cref="HttpResultExtensions.ToHttpResult{T}"/> sends it, and documents the success
-    /// response as it is sent: <c>200</c> with a <c>T</c> (or with no body for a
-    /// <see cref="Result"/>) instead of the <c>Result&lt;T&gt;</c> ASP.NET Core would infer.
+    /// response as it is sent: the success status code (<c>200</c> unless
+    /// <see cref="WithSuccessStatusCode{TBuilder}"/>, <see cref="WithCreatedLocation{T}"/> or
+    /// <see cref="ResultHttpOptions.SuccessStatusCodes"/> says otherwise) with a <c>T</c> (or with
+    /// no body for a <see cref="Result"/> or a <c>204</c>) instead of the <c>Result&lt;T&gt;</c>
+    /// ASP.NET Core would infer.
     /// </summary>
     /// <remarks>
     /// Whether the handler returns a result is decided once per endpoint, at startup: any other
@@ -45,11 +48,12 @@ public static class ResultEndpointConventionBuilderExtensions
     /// Sends the <see cref="Result"/> or <see cref="Result{T}"/> an endpoint's handler returns
     /// (optionally in a <see cref="Task{TResult}"/> or <see cref="ValueTask{TResult}"/>) as an
     /// envelope, exactly as <see cref="HttpResultExtensions.ToEnvelopeHttpResult{T}"/> sends it,
-    /// and documents the success response as one: <c>200</c> with a
-    /// <see cref="ResultEnvelope{T}"/> (or a <see cref="ResultEnvelope"/>) instead of the
-    /// <c>Result&lt;T&gt;</c> ASP.NET Core would infer. With
-    /// <see cref="ResultHttpOptions.CreateEnvelope"/> set, the <c>200</c> is documented without a
-    /// type, since the shape is the API's own.
+    /// and documents the success response as one: the success status code (as for
+    /// <see cref="WithResultResponses{TBuilder}"/>) with a <see cref="ResultEnvelope{T}"/> (or a
+    /// <see cref="ResultEnvelope"/>) instead of the <c>Result&lt;T&gt;</c> ASP.NET Core would
+    /// infer. With <see cref="ResultHttpOptions.CreateEnvelope"/> set, it is documented without a
+    /// type, since the shape is the API's own. An endpoint whose success status code is
+    /// <c>204</c> fails when it is built, since an envelope always has a body.
     /// </summary>
     /// <remarks>
     /// Whether the handler returns a result is decided once per endpoint, at startup: any other
@@ -74,5 +78,73 @@ public static class ResultEndpointConventionBuilderExtensions
         ArgumentNullException.ThrowIfNull(builder);
         ResultEndpoints.Apply(builder, envelope: true);
         return builder;
+    }
+
+    /// <summary>
+    /// Sends a successful result from the endpoint, or from every endpoint in the route group,
+    /// with <paramref name="statusCode"/>, in place of
+    /// <see cref="ResultHttpOptions.SuccessStatusCodes"/> and
+    /// <see cref="ResultHttpOptions.StatusCodes"/>. Applies to <see cref="WithResultResponses{TBuilder}"/>,
+    /// <see cref="WithResultEnvelopes{TBuilder}"/> (which document it) and to direct
+    /// <c>ToHttpResult()</c> calls alike. The most specific one wins: an endpoint's over its
+    /// group's, an inner group's over an outer one's.
+    /// </summary>
+    /// <remarks>
+    /// A <c>204</c> is sent without a body, so a <see cref="Result{T}"/>'s value is dropped, and it
+    /// can't be used with envelopes, which always have one.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// RouteGroupBuilder orders = app.MapGroup("/api/orders").WithResultResponses();
+    ///
+    /// orders.MapPost("", (OrderService service) =&gt; service.Create())
+    ///     .WithSuccessStatusCode(StatusCodes.Status201Created);
+    /// </code>
+    /// </example>
+    /// <typeparam name="TBuilder">The builder's type.</typeparam>
+    /// <param name="builder">An endpoint, a route group, or any other convention builder.</param>
+    /// <param name="statusCode">A <c>2xx</c> status code.</param>
+    /// <returns>The same builder.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="statusCode"/> isn't
+    /// <c>2xx</c>.</exception>
+    public static TBuilder WithSuccessStatusCode<TBuilder>(this TBuilder builder, int statusCode)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        return builder.WithMetadata(new SuccessStatusCodeAttribute(statusCode));
+    }
+
+    /// <summary>
+    /// Sends a successful <see cref="Result{T}"/> from the endpoint as <c>201 Created</c> with a
+    /// <c>Location</c> made from its value, whatever success status code it would have had.
+    /// Applies to <see cref="WithResultResponses{TBuilder}"/>,
+    /// <see cref="WithResultEnvelopes{TBuilder}"/> (which document the <c>201</c>) and to direct
+    /// <c>ToHttpResult()</c> calls alike; for a single call,
+    /// <see cref="HttpResultExtensions.ToCreatedHttpResult{T}"/> does the same.
+    /// </summary>
+    /// <remarks>
+    /// With <see cref="WithResultResponses{TBuilder}"/> or <see cref="WithResultEnvelopes{TBuilder}"/>,
+    /// a handler that doesn't return a <see cref="Result{T}"/> of a <typeparamref name="T"/>
+    /// fails when the endpoint is built.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// orders.MapPost("", (OrderService service) =&gt; service.Create()) // Result&lt;OrderDto&gt;
+    ///     .WithCreatedLocation&lt;OrderDto&gt;(order =&gt; $"/api/orders/{order.Id}");
+    /// </code>
+    /// </example>
+    /// <typeparam name="T">The type of the result's value.</typeparam>
+    /// <param name="builder">The endpoint.</param>
+    /// <param name="location">Makes the <c>Location</c> from the value; <see langword="null"/>
+    /// leaves the header out.</param>
+    /// <returns>The same builder.</returns>
+    public static RouteHandlerBuilder WithCreatedLocation<T>(
+        this RouteHandlerBuilder builder,
+        Func<T, string?> location)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(location);
+        return builder.WithMetadata(
+            new CreatedLocationMetadata(typeof(T), value => location((T)value!)));
     }
 }

@@ -3,6 +3,7 @@ using System.Reflection;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Routing;
 
 namespace Hlibz.Results.AspNetCore.Internal;
 
@@ -51,7 +52,8 @@ internal static class ResultEndpoints
 
     /// <summary>
     /// Replaces the <c>Result</c> ASP.NET Core documents for the handler's return type with what
-    /// is actually sent on success.
+    /// is actually sent on success, with the status code the endpoint sends it with, and checks
+    /// the endpoint's success settings fit what the handler returns.
     /// </summary>
     private static void Document(EndpointBuilder endpoint, bool envelope)
     {
@@ -60,6 +62,15 @@ internal static class ResultEndpoints
             || ResultTypeOf(handler.ReturnType) is not { } resultType)
         {
             return;
+        }
+
+        ResultHttpOptions options = endpoint.ApplicationServices is { } services
+            ? ResultResponses.GetOptions(services)
+            : new ResultHttpOptions();
+        int statusCode = SuccessStatusCodeOf(endpoint, resultType, options);
+        if (envelope)
+        {
+            ResultResponses.RequireEnvelopeBody(statusCode);
         }
 
         for (int index = metadata.Count - 1; index >= 0; index--)
@@ -71,30 +82,75 @@ internal static class ResultEndpoints
             }
         }
 
-        metadata.Add(envelope ? EnvelopeResponse(endpoint, resultType) : PlainResponse(resultType));
+        metadata.Add(
+            envelope
+                ? EnvelopeResponse(statusCode, resultType, options)
+                : PlainResponse(statusCode, resultType));
     }
 
-    private static ProducesResponseTypeMetadata PlainResponse(Type resultType) =>
-        resultType.IsGenericType
+    /// <summary>
+    /// The status code a success goes out with, as <see cref="ResultResponses.CreateContext"/>
+    /// works it out at request time; the method's default applies only to an endpoint that
+    /// answers a single method.
+    /// </summary>
+    private static int SuccessStatusCodeOf(
+        EndpointBuilder endpoint,
+        Type resultType,
+        ResultHttpOptions options)
+    {
+        IList<object> metadata = endpoint.Metadata;
+        if (metadata.OfType<CreatedLocationMetadata>().LastOrDefault() is { } created)
+        {
+            if (!resultType.IsGenericType
+                || !created.ValueType.IsAssignableFrom(resultType.GetGenericArguments()[0]))
+            {
+                throw new InvalidOperationException(
+                    $"WithCreatedLocation<{created.ValueType.Name}> on '{endpoint.DisplayName}' "
+                    + $"needs a handler that returns a Result<{created.ValueType.Name}>.");
+            }
+
+            return StatusCodes.Status201Created;
+        }
+
+        string? method = metadata.OfType<IHttpMethodMetadata>().LastOrDefault()?.HttpMethods
+            is [string single]
+                ? single
+                : null;
+        return ResultResponses.SuccessStatusCodeFor(
+            metadata.OfType<SuccessStatusCodeAttribute>().LastOrDefault(),
+            method,
+            options);
+    }
+
+    /// <summary>
+    /// The success response without an envelope. One without a body is documented as
+    /// <see langword="void"/>, as <c>.Produces(204)</c> does: ASP.NET Core's API explorer drops a
+    /// response whose type is <see langword="null"/>, and then documents the handler's
+    /// <c>Result</c> as the success.
+    /// </summary>
+    private static ProducesResponseTypeMetadata PlainResponse(int statusCode, Type resultType) =>
+        resultType.IsGenericType && statusCode != StatusCodes.Status204NoContent
             ? new ProducesResponseTypeMetadata(
-                StatusCodes.Status200OK,
+                statusCode,
                 resultType.GetGenericArguments()[0],
                 [JsonContentType])
-            : new ProducesResponseTypeMetadata(StatusCodes.Status200OK);
+            : new ProducesResponseTypeMetadata(statusCode, typeof(void));
 
     private static ProducesResponseTypeMetadata EnvelopeResponse(
-        EndpointBuilder endpoint,
-        Type resultType)
+        int statusCode,
+        Type resultType,
+        ResultHttpOptions options)
     {
-        if (endpoint.ApplicationServices is { } services
-            && ResultResponses.GetOptions(services).CreateEnvelope is not null)
+        // EnvelopeAlwaysOk sends every envelope as 200, whatever status it carries.
+        int sent = ResultResponses.EnvelopeHttpStatusCode(statusCode, options);
+        if (options.CreateEnvelope is not null)
         {
-            return new ProducesResponseTypeMetadata(StatusCodes.Status200OK);
+            return new ProducesResponseTypeMetadata(sent);
         }
 
         return EnvelopeTypeOf(resultType) is { } envelopeType
-            ? new ProducesResponseTypeMetadata(StatusCodes.Status200OK, envelopeType, [JsonContentType])
-            : new ProducesResponseTypeMetadata(StatusCodes.Status200OK);
+            ? new ProducesResponseTypeMetadata(sent, envelopeType, [JsonContentType])
+            : new ProducesResponseTypeMetadata(sent);
     }
 
     /// <summary>

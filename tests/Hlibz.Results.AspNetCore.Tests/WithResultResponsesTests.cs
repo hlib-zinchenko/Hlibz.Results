@@ -4,7 +4,9 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc.ApiExplorer;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Hlibz.Results.AspNetCore.Tests;
 
@@ -192,7 +194,7 @@ public sealed class WithResultResponsesTests
                 app.MapDelete("/", () => Result.Success()).WithResultResponses()));
 
         Assert.Equal(StatusCodes.Status200OK, response.StatusCode);
-        Assert.Null(response.Type);
+        Assert.Equal(typeof(void), response.Type);
     }
 
     [Fact]
@@ -203,5 +205,36 @@ public sealed class WithResultResponsesTests
                 app.MapGet("/", () => new OrderDto(8, "Bob")).WithResultResponses()));
 
         Assert.Equal(typeof(OrderDto), response.Type);
+    }
+
+    [Fact]
+    public async Task WithResultResponses_WithBodylessSuccess_ApiExplorerDocumentsNoBody()
+    {
+        IApiDescriptionGroupCollectionProvider? explorer = null;
+        using HttpClient client = await TestApp.StartAsync(
+            app =>
+            {
+                explorer = app.Services.GetRequiredService<IApiDescriptionGroupCollectionProvider>();
+                RouteGroupBuilder group = app.MapGroup("/api").WithResultResponses();
+                group.MapDelete("/value", () => Result<OrderDto>.Success(new(7, "Ann")));
+                group.MapPost("/empty", () => Result.Success());
+            },
+            options => options.SuccessStatusCodes[HttpMethods.Delete] = StatusCodes.Status204NoContent,
+            services: services => services.AddEndpointsApiExplorer());
+
+        ApiDescription[] descriptions =
+        [
+            .. explorer!.ApiDescriptionGroups.Items.SelectMany(group => group.Items)
+                .Where(description => description.RelativePath?.StartsWith("api/", StringComparison.Ordinal) == true),
+        ];
+        ApiResponseType deleted = Assert.Single(
+            Assert.Single(descriptions, description => description.HttpMethod == "DELETE").SupportedResponseTypes);
+        ApiResponseType posted = Assert.Single(
+            Assert.Single(descriptions, description => description.HttpMethod == "POST").SupportedResponseTypes);
+
+        Assert.Equal(StatusCodes.Status204NoContent, deleted.StatusCode);
+        Assert.Equal(typeof(void), deleted.Type);
+        Assert.Equal(StatusCodes.Status200OK, posted.StatusCode);
+        Assert.Equal(typeof(void), posted.Type);
     }
 }

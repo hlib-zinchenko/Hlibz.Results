@@ -4,20 +4,22 @@ namespace Hlibz.Results.AspNetCore.Internal;
 
 /// <summary>
 /// A controller action result that builds its real response only when executed, once the
-/// request's <see cref="ResultHttpOptions"/> and MVC JSON settings can be read from its services.
+/// request's <see cref="ResultHttpOptions"/>, MVC JSON settings and endpoint can be read.
 /// </summary>
-/// <param name="build">Builds the response from the options and JSON settings.</param>
-internal sealed class DeferredActionResult(
-    Func<ResultHttpOptions, JsonSerializerOptions, IActionResult> build)
+/// <param name="build">Builds the response from the request's <see cref="ResultResponseContext"/>.</param>
+internal sealed class DeferredActionResult(Func<ResultResponseContext, IActionResult> build)
     : ActionResult
 {
     public override Task ExecuteResultAsync(ActionContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
-        IServiceProvider services = context.HttpContext.RequestServices;
+        HttpContext httpContext = context.HttpContext;
+        IServiceProvider services = httpContext.RequestServices;
         return build(
-                ResultResponses.GetOptions(services),
-                ResultResponses.GetMvcJsonOptions(services))
+                ResultResponses.CreateContext(
+                    httpContext,
+                    ResultResponses.GetOptions(services),
+                    ResultResponses.GetMvcJsonOptions(services)))
             .ExecuteResultAsync(context);
     }
 }

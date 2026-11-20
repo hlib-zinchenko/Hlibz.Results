@@ -21,6 +21,110 @@ internal static class ResultResponses
                 $"{nameof(ResultHttpOptions)}.{nameof(ResultHttpOptions.StatusCodes)} has no "
                 + $"HTTP status code for {nameof(ResultStatus)}.{status}.");
 
+    /// <summary>
+    /// The status code a successful result is sent with when nothing more specific (a
+    /// <c>ToCreated…</c> method, <see cref="CreatedLocationMetadata"/>) decides: the endpoint's
+    /// <see cref="SuccessStatusCodeAttribute"/>, then the default for the request's method, then
+    /// the default for <see cref="ResultStatus.Success"/>.
+    /// </summary>
+    /// <param name="attribute">The endpoint's last <see cref="SuccessStatusCodeAttribute"/>, if
+    /// any.</param>
+    /// <param name="httpMethod">The request's method, or <see langword="null"/> when it isn't
+    /// known (documenting an endpoint that answers several).</param>
+    /// <param name="options">The options.</param>
+    /// <returns>A <c>2xx</c> status code.</returns>
+    public static int SuccessStatusCodeFor(
+        SuccessStatusCodeAttribute? attribute,
+        string? httpMethod,
+        ResultHttpOptions options)
+    {
+        if (attribute is not null)
+        {
+            return attribute.StatusCode;
+        }
+
+        if (httpMethod is not null
+            && options.SuccessStatusCodes.TryGetValue(httpMethod, out int byMethod))
+        {
+            return RequireSuccess(
+                byMethod,
+                $"{nameof(ResultHttpOptions)}.{nameof(ResultHttpOptions.SuccessStatusCodes)}[\"{httpMethod}\"]");
+        }
+
+        return RequireSuccess(
+            StatusCodeFor(ResultStatus.Success, options),
+            $"{nameof(ResultHttpOptions)}.{nameof(ResultHttpOptions.StatusCodes)}[{nameof(ResultStatus)}.{nameof(ResultStatus.Success)}]");
+    }
+
+    /// <summary>
+    /// Everything a result's response depends on for the request being handled: the options, the
+    /// JSON settings, and the endpoint's success status code and location.
+    /// </summary>
+    /// <param name="httpContext">The request.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="json">The JSON settings.</param>
+    /// <returns>The context.</returns>
+    public static ResultResponseContext CreateContext(
+        HttpContext httpContext,
+        ResultHttpOptions options,
+        JsonSerializerOptions json)
+    {
+        EndpointMetadataCollection? metadata = httpContext.GetEndpoint()?.Metadata;
+        CreatedLocationMetadata? created = metadata?.GetMetadata<CreatedLocationMetadata>();
+        return new ResultResponseContext
+        {
+            Options = options,
+            Json = json,
+            CreatedLocation = created,
+            SuccessStatusCode = created is null
+                ? SuccessStatusCodeFor(
+                    metadata?.GetMetadata<SuccessStatusCodeAttribute>(),
+                    httpContext.Request.Method,
+                    options)
+                : StatusCodes.Status201Created,
+        };
+    }
+
+    /// <summary>
+    /// The status code an envelope carries: <paramref name="successStatusCode"/> on success, the
+    /// failure's own otherwise.
+    /// </summary>
+    /// <param name="result">The result.</param>
+    /// <param name="successStatusCode">The success status code.</param>
+    /// <param name="options">The options.</param>
+    /// <returns>The status code.</returns>
+    /// <exception cref="InvalidOperationException">A success would be a <c>204</c>, which can't
+    /// carry the envelope.</exception>
+    public static int EnvelopeStatusCodeFor(
+        Result result,
+        int successStatusCode,
+        ResultHttpOptions options)
+    {
+        if (!result.IsSuccess)
+        {
+            return StatusCodeFor(result.Status, options);
+        }
+
+        RequireEnvelopeBody(successStatusCode);
+        return successStatusCode;
+    }
+
+    /// <summary>
+    /// Throws for a <c>204</c>: an envelope always has a body, and a <c>204</c> can't.
+    /// </summary>
+    /// <param name="successStatusCode">The success status code.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="successStatusCode"/> is
+    /// <c>204</c>.</exception>
+    public static void RequireEnvelopeBody(int successStatusCode)
+    {
+        if (successStatusCode == StatusCodes.Status204NoContent)
+        {
+            throw new InvalidOperationException(
+                "An envelope can't be sent as 204 No Content, which has no body: give the endpoint "
+                + "another success status code.");
+        }
+    }
+
     public static string DefaultMessageFor(int statusCode, ResultMessages messages) =>
         statusCode switch
         {
@@ -47,19 +151,31 @@ internal static class ResultResponses
 
     public static object ToEnvelope(
         Result result,
+        int statusCode,
         ResultHttpOptions options,
         JsonSerializerOptions serializerOptions)
     {
-        EnvelopeContent content = ToContent(result, data: null, options, serializerOptions);
+        EnvelopeContent content = ToContent(
+            result,
+            data: null,
+            statusCode,
+            options,
+            serializerOptions);
         return Create(content, options) ?? Builtin(content);
     }
 
     public static object ToEnvelope<T>(
         Result<T> result,
+        int statusCode,
         ResultHttpOptions options,
         JsonSerializerOptions serializerOptions)
     {
-        EnvelopeContent content = ToContent(result, result.Value, options, serializerOptions);
+        EnvelopeContent content = ToContent(
+            result,
+            result.Value,
+            statusCode,
+            options,
+            serializerOptions);
         return Create(content, options)
                ?? new ResultEnvelope<T>
                {
@@ -171,18 +287,25 @@ internal static class ResultResponses
     private static EnvelopeContent ToContent(
         Result result,
         object? data,
+        int statusCode,
         ResultHttpOptions options,
         JsonSerializerOptions serializerOptions) =>
         new()
         {
             IsSuccess = result.IsSuccess,
-            StatusCode = StatusCodeFor(result.Status, options),
+            StatusCode = statusCode,
             ResultStatus = result.Status,
             Message = result.ErrorMessage ?? options.Messages.For(result.Status),
             Code = result.ErrorCode,
             ValidationErrors = FormatKeys(result.ValidationErrors, options, serializerOptions),
             Data = data,
         };
+
+    private static int RequireSuccess(int statusCode, string source) =>
+        statusCode is >= 200 and <= 299
+            ? statusCode
+            : throw new InvalidOperationException(
+                $"{source} is {statusCode}, but a successful result needs a 2xx status code.");
 
     private static object? Create(EnvelopeContent content, ResultHttpOptions options) =>
         options.CreateEnvelope is { } create

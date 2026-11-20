@@ -6,8 +6,8 @@ A small shop, in two web apps over the same use cases:
 |---|---|
 | `Shop.Core` | Customer use cases returning `Result`s, entity rules as `Result`s, `Map`/`Bind`/`FromFailed`, FluentValidation → `Invalid`, a dependency failing with `Unavailable`. Error codes `orders_*` and `payments_*`. |
 | `Shop.Admin` | Back-office use cases in **their own assembly**, with their own codes `admin_*`, and `Result.Invalid` without FluentValidation. |
-| `Shop.MinimalApi` | Minimal APIs with `ToHttpResult()`, real authorization (401/403 bodies from the auth gate), `Invalid` mapped to **422**, the rate limiter's 429 through `WriteErrorAsync`, and two error code catalogs: customers' at `api/error-codes`, admins' at `api/admin/error-codes`. |
-| `Shop.Controllers` | Controllers with `ToEnvelopeActionResult()` and `UseEnvelope`, a 401 as a plain failed `Result`, and the catalogs injected (the admin one as a keyed service). |
+| `Shop.MinimalApi` | Minimal APIs with `ToHttpResult()` (`ToCreatedHttpResult()` for 201 + `Location`), real authorization (401/403 bodies from the auth gate), `Invalid` mapped to **422**, the rate limiter's 429 through `WriteErrorAsync`, and two error code catalogs: customers' at `api/error-codes`, admins' at `api/admin/error-codes`. |
+| `Shop.Controllers` | Controllers with `ToEnvelopeActionResult()` (`ToCreatedEnvelopeActionResult()` for 201) and `UseEnvelope`, a 401 as a plain failed `Result`, and the catalogs injected (the admin one as a keyed service). |
 
 ```bash
 dotnet run --project samples/Shop.MinimalApi    # http://localhost:5180

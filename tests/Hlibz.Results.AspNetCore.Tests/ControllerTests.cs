@@ -81,6 +81,67 @@ public sealed class ControllerTests
         Assert.Equal("test_1002", body.GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task ToActionResult_WithActionAttribute_SendsItsCode()
+    {
+        using HttpClient client = await TestApp.StartAsync(_ => { });
+
+        using HttpResponseMessage response = await client.PostAsync("/mvc/accepted", null, Ct);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal(7, (await response.ReadJsonAsync()).GetProperty("order_id").GetInt32());
+    }
+
+    [Fact]
+    public async Task ToActionResult_WithControllerAttribute_AppliesUnlessTheActionSetsItsOwn()
+    {
+        using HttpClient client = await TestApp.StartAsync(_ => { });
+
+        using HttpResponseMessage controller = await client.PostAsync("/mvc/imports", null, Ct);
+        using HttpResponseMessage action = await client.PostAsync("/mvc/imports/now", null, Ct);
+
+        Assert.Equal(HttpStatusCode.Accepted, controller.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, action.StatusCode);
+    }
+
+    [Fact]
+    public async Task ToActionResult_WithDeleteDefaultOf204_Sends204()
+    {
+        using HttpClient client = await TestApp.StartAsync(
+            _ => { },
+            options => options.SuccessStatusCodes["DELETE"] = 204);
+
+        using HttpResponseMessage response = await client.DeleteAsync("/mvc/order", Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync(Ct));
+    }
+
+    [Fact]
+    public async Task ToCreatedActionResult_WithSuccess_Sends201WithLocation()
+    {
+        using HttpClient client = await TestApp.StartAsync(_ => { });
+
+        using HttpResponseMessage response = await client.PostAsync("/mvc/created", null, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("/mvc/order/7", response.Headers.Location?.OriginalString);
+        Assert.Equal(7, (await response.ReadJsonAsync()).GetProperty("order_id").GetInt32());
+    }
+
+    [Fact]
+    public async Task ToCreatedEnvelopeActionResult_WithSuccess_Sends201EnvelopeWithLocation()
+    {
+        using HttpClient client = await TestApp.StartAsync(_ => { });
+
+        using HttpResponseMessage response = await client.PostAsync("/mvc/created-envelope", null, Ct);
+        JsonElement body = await response.ReadJsonAsync();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal("/mvc/order/7", response.Headers.Location?.OriginalString);
+        Assert.Equal(201, body.GetProperty("status").GetInt32());
+    }
+
     private static async Task<HttpResponseMessage> GetAsync(string path)
     {
         HttpClient client = await TestApp.StartAsync(_ => { });

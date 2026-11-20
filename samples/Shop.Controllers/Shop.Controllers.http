@@ -11,7 +11,7 @@ GET {{host}}/api/admin/error-codes
 ### 401 as a failed Result, in the envelope
 POST {{host}}/api/orders
 
-### Create an order: { "data": { ... }, "is_success": true, "status": 200, ... }
+### Create an order: 201 + Location, { "data": { ... }, "is_success": true, "status": 201, ... }
 POST {{host}}/api/orders
 X-User: alice
 

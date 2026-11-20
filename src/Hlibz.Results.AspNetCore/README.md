@@ -26,9 +26,15 @@ app.MapErrorCodes(); // GET api/error-codes → [{ "code": "orders_1001", "messa
 Or let handlers return a `Result` as is: `app.MapGroup("/api/orders").WithResultResponses()`.
 In a controller, `ToActionResult()` sends the same status codes and bodies.
 
+A success is `200` unless you configure it per app and HTTP method
+(`options.SuccessStatusCodes[HttpMethods.Delete] = 204`), per group or endpoint
+(`.WithSuccessStatusCode(201)`, `[SuccessStatusCode(201)]`), or send `201` with a `Location`
+(`.WithCreatedLocation<OrderDto>(o => $"/api/orders/{o.Id}")`, `ToCreatedHttpResult(...)`). See
+[Success status codes](https://github.com/hlib-zinchenko/Hlibz.Results#success-status-codes).
+
 | Status | HTTP (default) |
 |---|---|
-| `Success` | 200 |
+| `Success` | 200 (configurable) |
 | `Error` | 400 |
 | `Invalid` | 400 |
 | `NotFound` | 404 |

@@ -77,7 +77,7 @@ public async Task<Result<OrderDto>> AddLineAsync(Guid orderId, AddLine line)
 
 | Status | Factory | HTTP (default) |
 |---|---|---|
-| `Success` | `Success()` / `Success(value)` | 200 |
+| `Success` | `Success()` / `Success(value)` | 200 ([configurable](#success-status-codes)) |
 | `Error` | `Error(message)`, `Error(errorCode)`, `Error(validationErrors)`, `validationResult.ToErrorResult()` | 400 |
 | `Invalid` | `Invalid(validationErrors)`, `validationResult.ToInvalidResult()` | 400 |
 | `NotFound` | `NotFound(message?)`, `NotFound(errorCode)` | 404 |
@@ -112,8 +112,9 @@ app.MapErrorCodes(); // GET api/error-codes → [{ "code": "orders_1001", "messa
 
 `WithResultResponses()` on an endpoint or a route group lets handlers return a `Result` or
 `Result<T>` (or a `Task` of one) with no `ToHttpResult()` call. Each result is sent as
-`ToHttpResult()` would send it, and the success response is documented in OpenAPI as `200 T`
-(no body for a plain `Result`) instead of the `Result<T>` ASP.NET Core would infer:
+`ToHttpResult()` would send it, and the success response is documented in OpenAPI as it is sent,
+`200 T` by default (no body for a plain `Result`), instead of the `Result<T>` ASP.NET Core would
+infer:
 
 ```csharp
 RouteGroupBuilder orders = app.MapGroup("/api/orders").WithResultResponses();
@@ -125,6 +126,44 @@ orders.MapDelete("{id:int}", (int id, OrderService service) => service.Delete(id
 Handlers that return anything else are left alone, so it's safe on a whole group, and a response
 a filter sends in place of the handler's (a validation failure, say) goes out as it is. Document
 the failures on the endpoint (`.Produces<ErrorResponse>(404)`).
+
+### Success status codes
+
+A success is `200` unless you say otherwise, at three levels; the most specific wins:
+
+```csharp
+// App: by HTTP method (a method without an entry uses StatusCodes[ResultStatus.Success], 200).
+builder.Services.AddResultErrorResponses(options =>
+    options.SuccessStatusCodes[HttpMethods.Delete] = StatusCodes.Status204NoContent);
+
+// Group: every endpoint in it.
+RouteGroupBuilder imports = app.MapGroup("/api/imports")
+    .WithResultResponses()
+    .WithSuccessStatusCode(StatusCodes.Status202Accepted);
+
+// Endpoint: beats its group (an inner group beats an outer one) and the app.
+RouteGroupBuilder orders = app.MapGroup("/api/orders").WithResultResponses();
+orders.MapPost("", (OrderService s) => s.Create())                          // 201 + Location
+    .WithCreatedLocation<OrderDto>(order => $"/api/orders/{order.Id}");
+orders.MapPost("{id}/archive", (Guid id, OrderService s) => s.Archive(id))  // 201, no Location
+    .WithSuccessStatusCode(StatusCodes.Status201Created);
+orders.MapDelete("{id}", (Guid id, OrderService s) => s.Delete(id));        // 204, from the app
+orders.MapPost("{id}/pay", (Guid id, OrderService s) => s.Pay(id));         // 200
+```
+
+- `WithResultResponses()`/`WithResultEnvelopes()` send and document the code the endpoint
+  resolves to. `WithSuccessStatusCode` and `WithCreatedLocation` work with direct
+  `ToHttpResult()` calls too, but then you document the response yourself.
+- `[SuccessStatusCode(201)]` does the same as an attribute: on a minimal API handler method, a
+  controller action, or a controller class (an action's beats its controller's).
+- For one call, `ToCreatedHttpResult(order => $"/api/orders/{order.Id}")` sends `201` with that
+  `Location`, as do `ToCreatedEnvelopeHttpResult`, `ToCreatedActionResult` and
+  `ToCreatedEnvelopeActionResult`. A `null` location leaves the header out. Use these for
+  conditional codes, e.g. an upsert: `created ? r.ToCreatedHttpResult(...) : r.ToHttpResult()`.
+- A `204` has no body, so a `Result<T>`'s value is dropped. An envelope always has one: an
+  envelope endpoint that resolves to `204` fails when it's built (or, for a direct
+  `ToEnvelope…` call, when it's sent).
+- Failures are unaffected, and every success code must be `2xx`.
 
 ### Error codes per app
 
@@ -181,7 +220,8 @@ Set `options.UseEnvelope = true` in `AddResultErrorResponses` so the auth gate a
 
 In a minimal API, `WithResultEnvelopes()` is `WithResultResponses()` for envelopes: handlers
 return a `Result` or `Result<T>`, each is sent as `ToEnvelopeHttpResult()` would send it, and the
-success response is documented as `200 ResultEnvelope<T>`:
+success response is documented as `200 ResultEnvelope<T>` (or its
+[success status code](#success-status-codes)):
 
 ```csharp
 RouteGroupBuilder orders = app.MapGroup("/api/orders").WithResultEnvelopes();
@@ -237,6 +277,9 @@ builder.Services.AddResultErrorResponses(options =>
 {
     // 400 vs 422: pick your team's convention.
     options.StatusCodes[ResultStatus.Invalid] = StatusCodes.Status422UnprocessableEntity;
+
+    // Success codes by HTTP method; groups and endpoints can override them.
+    options.SuccessStatusCodes[HttpMethods.Delete] = StatusCodes.Status204NoContent;
 
     options.ValidationKeyNaming = ValidationKeyNaming.AsIs; // default: JsonNamingPolicy
     options.FormatValidationKey = key => key.ToUpperInvariant(); // or your own

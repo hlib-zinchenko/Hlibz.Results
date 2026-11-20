@@ -69,11 +69,12 @@ internal static class TestApp
     }
 
     /// <summary>
-    /// The responses documented for the app's endpoint at <c>/</c>.
+    /// The responses documented for the app's endpoint at <paramref name="pattern"/>.
     /// </summary>
     public static async Task<IProducesResponseTypeMetadata[]> ResponsesAsync(
         Action<WebApplication> map,
-        Action<ResultHttpOptions>? configure = null)
+        Action<ResultHttpOptions>? configure = null,
+        string pattern = "/")
     {
         IEndpointRouteBuilder? routes = null;
         using HttpClient client = await StartAsync(
@@ -86,7 +87,7 @@ internal static class TestApp
 
         Endpoint endpoint = Assert.Single(
             routes!.DataSources.SelectMany(source => source.Endpoints),
-            item => item is RouteEndpoint { RoutePattern.RawText: "/" });
+            item => item is RouteEndpoint route && route.RoutePattern.RawText == pattern);
         return [.. endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>()];
     }
 

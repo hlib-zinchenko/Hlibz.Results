@@ -9,6 +9,7 @@ namespace Shop.MinimalApi;
 /// <summary>
 /// The customer app. Each endpoint is one service call plus <c>ToHttpResult()</c>: 200 with the
 /// value on success, otherwise the status the app maps the failure to and an error body.
+/// Creating an order is <c>ToCreatedHttpResult()</c>: 201 with the new order's <c>Location</c>.
 /// </summary>
 public static class OrderEndpoints
 {
@@ -22,7 +23,8 @@ public static class OrderEndpoints
         orders.MapPost(
             string.Empty,
             (ClaimsPrincipal user, OrderService service) =>
-                service.Create(user.CustomerId()).ToHttpResult());
+                service.Create(user.CustomerId())
+                    .ToCreatedHttpResult(order => $"/api/orders/{order.Id}"));
 
         orders.MapGet(
             "{id:guid}",

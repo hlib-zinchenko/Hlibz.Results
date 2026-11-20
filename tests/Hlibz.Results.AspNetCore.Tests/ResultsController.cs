@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Hlibz.Results.AspNetCore.Tests;
@@ -34,4 +35,37 @@ public sealed class ResultsController : ControllerBase
     [HttpGet("envelope-conflict")]
     public ActionResult<ResultEnvelope> EnvelopeConflict() =>
         Result.Conflict(TestErrorCodes.Duplicate).ToEnvelopeActionResult();
+
+    [HttpPost("accepted")]
+    [SuccessStatusCode(StatusCodes.Status202Accepted)]
+    public ActionResult<OrderDto> AcceptOrder() =>
+        Result<OrderDto>.Success(new OrderDto(7, "Ann")).ToActionResult();
+
+    [HttpDelete("order")]
+    public ActionResult DeleteOrder() => Result.Success().ToActionResult();
+
+    [HttpPost("created")]
+    public ActionResult<OrderDto> CreateOrder() =>
+        Result<OrderDto>.Success(new OrderDto(7, "Ann"))
+            .ToCreatedActionResult(order => $"/mvc/order/{order.OrderId}");
+
+    [HttpPost("created-envelope")]
+    public ActionResult<ResultEnvelope<OrderDto>> CreatedEnvelope() =>
+        Result<OrderDto>.Success(new OrderDto(7, "Ann"))
+            .ToCreatedEnvelopeActionResult(order => $"/mvc/order/{order.OrderId}");
+}
+
+[ApiController]
+[Route("mvc/imports")]
+[SuccessStatusCode(StatusCodes.Status202Accepted)]
+public sealed class ImportsController : ControllerBase
+{
+    [HttpPost]
+    public ActionResult<OrderDto> Start() =>
+        Result<OrderDto>.Success(new OrderDto(7, "Ann")).ToActionResult();
+
+    [HttpPost("now")]
+    [SuccessStatusCode(StatusCodes.Status201Created)]
+    public ActionResult<OrderDto> Now() =>
+        Result<OrderDto>.Success(new OrderDto(7, "Ann")).ToActionResult();
 }

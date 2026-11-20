@@ -47,7 +47,13 @@ Likewise `ResultStatus` says what failed (`Error` = business rule / bad request,
 validation, `Unavailable` = dependency down) and `ResultHttpOptions.StatusCodes` maps it to HTTP
 (defaults 400/400/503; teams remap `Invalid`/`Error` to 422). Every status code goes through
 `ResultResponses.StatusCodeFor(status, options)`; adding a `ResultStatus` means a default in
-`ResultHttpOptions.StatusCodes` and a message in `ResultMessages`.
+`ResultHttpOptions.StatusCodes` and a message in `ResultMessages`. A success's code is resolved
+per request (`ResultResponses.CreateContext`, read from the endpoint by `DeferredHttpResult`/
+`DeferredActionResult`) and per endpoint for OpenAPI (`ResultEndpoints.Document`), most specific
+first: a `ToCreated…` call or `WithCreatedLocation` (201 + `Location`), the endpoint's last
+`SuccessStatusCodeAttribute` (endpoint > handler attribute > inner group > outer group; action >
+controller), `SuccessStatusCodes[method]`, `StatusCodes[Success]`. A 204 has no body and can't
+carry an envelope.
 
 - `samples/`: a shop (`Shop.Core` customer codes, `Shop.Admin` admin codes in a separate
   assembly) served by `Shop.MinimalApi` and `Shop.Controllers`, net11.0 only, never packed,

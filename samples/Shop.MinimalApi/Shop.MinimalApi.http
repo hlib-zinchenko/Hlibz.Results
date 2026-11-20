@@ -13,7 +13,7 @@ X-Role: admin
 ### 401 from the auth gate, same body as every other error
 POST {{host}}/api/orders
 
-### Create an order
+### Create an order: 201, Location: /api/orders/{id}
 POST {{host}}/api/orders
 X-User: alice
 X-Role: customer

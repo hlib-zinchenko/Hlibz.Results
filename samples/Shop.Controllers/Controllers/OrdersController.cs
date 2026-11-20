@@ -20,7 +20,9 @@ public sealed class OrdersController(OrderService orders) : ControllerBase
     [HttpPost]
     public ActionResult<ResultEnvelope<OrderDto>> Create(
         [FromHeader(Name = UserHeader)] string? user) =>
-        Customer(user).Bind(orders.Create).ToEnvelopeActionResult();
+        Customer(user)
+            .Bind(orders.Create)
+            .ToCreatedEnvelopeActionResult(order => $"/api/orders/{order.Id}");
 
     [HttpGet("{id:guid}")]
     public ActionResult<ResultEnvelope<OrderDto>> Get(

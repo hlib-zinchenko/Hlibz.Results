@@ -14,6 +14,11 @@ public sealed class ResultHttpOptions
     /// Change an entry to follow your API's conventions, e.g.
     /// <c>options.StatusCodes[ResultStatus.Invalid] = StatusCodes.Status422UnprocessableEntity</c>.
     /// </summary>
+    /// <remarks>
+    /// The <see cref="ResultStatus.Success"/> entry is the last resort for a success: an
+    /// endpoint's or group's <see cref="SuccessStatusCodeAttribute"/> comes first, then
+    /// <see cref="SuccessStatusCodes"/> for the request's method. It must be <c>2xx</c>.
+    /// </remarks>
     public IDictionary<ResultStatus, int> StatusCodes { get; } = new Dictionary<ResultStatus, int>
     {
         [ResultStatus.Success] = Microsoft.AspNetCore.Http.StatusCodes.Status200OK,
@@ -26,6 +31,23 @@ public sealed class ResultHttpOptions
         [ResultStatus.Unavailable] =
             Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable,
     };
+
+    /// <summary>
+    /// Gets the HTTP status code a successful result is sent with, by request method (compared
+    /// case-insensitively), for endpoints that don't set their own with
+    /// <see cref="SuccessStatusCodeAttribute"/> or
+    /// <see cref="ResultEndpointConventionBuilderExtensions.WithSuccessStatusCode{TBuilder}"/>.
+    /// Empty by default: a method without an entry uses
+    /// <see cref="StatusCodes"/>' <see cref="ResultStatus.Success"/>. Each code must be
+    /// <c>2xx</c>; a <c>204</c> is sent without a body and can't be used with envelopes.
+    /// </summary>
+    /// <example>
+    /// <code>
+    /// options.SuccessStatusCodes[HttpMethods.Delete] = StatusCodes.Status204NoContent;
+    /// </code>
+    /// </example>
+    public IDictionary<string, int> SuccessStatusCodes { get; } =
+        new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Gets or sets how validation error keys are written. Defaults to

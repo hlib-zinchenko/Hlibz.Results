@@ -9,6 +9,7 @@ namespace Hlibz.Results.AspNetCore.Internal;
 /// a failed policy) the same body as every other error, on top of what the default handler does
 /// (status code, <c>WWW-Authenticate</c>).
 /// </summary>
+/// <param name="options">The app's <see cref="ResultHttpOptions"/>, which shape the error body.</param>
 internal sealed class ErrorResponseAuthorizationResultHandler(IOptions<ResultHttpOptions> options)
     : IAuthorizationMiddlewareResultHandler
 {

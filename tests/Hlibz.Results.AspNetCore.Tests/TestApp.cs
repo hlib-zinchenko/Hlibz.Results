@@ -128,14 +128,3 @@ internal sealed class TestAuthHandler(
                 new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName)));
     }
 }
-
-public sealed record TestErrorCode(string Code, string Message) : ErrorCode($"test_{Code}", Message);
-
-public static class TestErrorCodes
-{
-    public static readonly ErrorCode OrderClosed = new TestErrorCode("1001", "The order is closed.");
-
-    public static readonly ErrorCode Duplicate = new TestErrorCode("1002", "Already exists.");
-}
-
-public sealed record OrderDto(int OrderId, string CustomerName);

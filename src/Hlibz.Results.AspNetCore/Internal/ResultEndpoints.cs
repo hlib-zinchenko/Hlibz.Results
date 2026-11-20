@@ -122,13 +122,19 @@ internal static class ResultEndpoints
             options);
     }
 
+    /// <summary>
+    /// The success response without an envelope. One without a body is documented as
+    /// <see langword="void"/>, as <c>.Produces(204)</c> does: ASP.NET Core's API explorer drops a
+    /// response whose type is <see langword="null"/>, and then documents the handler's
+    /// <c>Result</c> as the success.
+    /// </summary>
     private static ProducesResponseTypeMetadata PlainResponse(int statusCode, Type resultType) =>
         resultType.IsGenericType && statusCode != StatusCodes.Status204NoContent
             ? new ProducesResponseTypeMetadata(
                 statusCode,
                 resultType.GetGenericArguments()[0],
                 [JsonContentType])
-            : new ProducesResponseTypeMetadata(statusCode);
+            : new ProducesResponseTypeMetadata(statusCode, typeof(void));
 
     private static ProducesResponseTypeMetadata EnvelopeResponse(
         int statusCode,

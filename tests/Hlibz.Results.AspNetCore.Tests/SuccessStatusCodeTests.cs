@@ -334,7 +334,7 @@ public sealed class SuccessStatusCodeTests
                 options => options.SuccessStatusCodes[HttpMethods.Delete] = StatusCodes.Status204NoContent));
 
         Assert.Equal(StatusCodes.Status204NoContent, response.StatusCode);
-        Assert.Null(response.Type);
+        Assert.Equal(typeof(void), response.Type);
     }
 
     [Fact]

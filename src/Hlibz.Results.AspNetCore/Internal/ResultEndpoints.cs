@@ -114,8 +114,8 @@ internal static class ResultEndpoints
 
         string? method = metadata.OfType<IHttpMethodMetadata>().LastOrDefault()?.HttpMethods
             is [string single]
-            ? single
-            : null;
+                ? single
+                : null;
         return ResultResponses.SuccessStatusCodeFor(
             metadata.OfType<SuccessStatusCodeAttribute>().LastOrDefault(),
             method,
@@ -204,10 +204,10 @@ internal static class ResultEndpoints
     private static Type? ResultTypeOf(Type returnType)
     {
         Type type = returnType.IsGenericType
-                    && (returnType.GetGenericTypeDefinition() == typeof(Task<>)
-                        || returnType.GetGenericTypeDefinition() == typeof(ValueTask<>))
-            ? returnType.GetGenericArguments()[0]
-            : returnType;
+            && returnType.GetGenericTypeDefinition() is { } definition
+            && (definition == typeof(Task<>) || definition == typeof(ValueTask<>))
+                ? returnType.GetGenericArguments()[0]
+                : returnType;
 
         for (Type? current = type; current is not null; current = current.BaseType)
         {

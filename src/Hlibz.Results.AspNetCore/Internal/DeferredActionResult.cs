@@ -6,6 +6,7 @@ namespace Hlibz.Results.AspNetCore.Internal;
 /// A controller action result that builds its real response only when executed, once the
 /// request's <see cref="ResultHttpOptions"/>, MVC JSON settings and endpoint can be read.
 /// </summary>
+/// <param name="build">Builds the response from the request's <see cref="ResultResponseContext"/>.</param>
 internal sealed class DeferredActionResult(Func<ResultResponseContext, IActionResult> build)
     : ActionResult
 {

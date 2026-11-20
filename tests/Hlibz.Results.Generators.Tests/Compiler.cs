@@ -37,9 +37,11 @@ internal static class Compiler
     {
         MetadataReference[] references = referenceLibrary
             ? AllReferences
-            : [.. AllReferences.Where(reference => !reference.Display!.EndsWith(
-                "Hlibz.Results.dll",
-                StringComparison.Ordinal))];
+            : AllReferences
+                .Where(reference => !reference.Display!.EndsWith(
+                    "Hlibz.Results.dll",
+                    StringComparison.Ordinal))
+                .ToArray();
         return CSharpCompilation.Create(
             "Generated.Codes-1",
             [CSharpSyntaxTree.ParseText(Usings + source, new CSharpParseOptions(LanguageVersion.CSharp12), path: "Source.cs")],

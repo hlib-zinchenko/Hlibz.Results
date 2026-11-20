@@ -4,12 +4,11 @@
 
     <!--
         Package validation checks that the packed assemblies expose the same API on every target
-        framework. Once 2.0.0 ships, add <PackageValidationBaselineVersion>2.0.0</...> so a pack
-        also fails on an accidental break against the last release. A 1.1.0 baseline would fail
-        on the net8.0 and net9.0 builds 2.0.0 drops.
+        framework and, against the baseline, that a pack doesn't break the last major release.
     -->
     <PropertyGroup>
         <EnablePackageValidation>true</EnablePackageValidation>
+        <PackageValidationBaselineVersion>2.0.0</PackageValidationBaselineVersion>
     </PropertyGroup>
 
     <ItemGroup>

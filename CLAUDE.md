@@ -32,7 +32,9 @@ Three NuGet packages released together from one tag (plus a build tool packed in
   `buildTransitive/Hlibz.Results.AspNetCore.targets` runs the tool after `Build`. Its properties
   mirror Microsoft.Extensions.ApiDescription.Server's one for one (`ErrorCodesGenerateFiles`,
   `ErrorCodesGenerateFilesOnBuild`, `ErrorCodesDirectory` defaulting to `obj/`,
-  `GenerateErrorCodeFiles` target): keep it that way rather than adding settings of our own. The
+  `ErrorCodesGenerateFilesOptions` with `--environment <Name>`, which the tool passes to the
+  entry point and sets as `ASPNETCORE_ENVIRONMENT`/`DOTNET_ENVIRONMENT`, `GenerateErrorCodeFiles`
+  target): keep it that way rather than adding settings of our own. The
   one difference is deliberate: `ErrorCodesGenerateFiles` is off by default, since every app
   returning results references this package. Every response shape is built in `Internal/ResultResponses` and written through `JsonTypeInfo`
   (`Internal/ResultsJsonContext`, source-generated metadata `AddResultErrorResponses` appends to

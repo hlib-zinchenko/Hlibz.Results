@@ -7,6 +7,7 @@ using Hlibz.Results.AspNetCore.Tool;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Hlibz.Results.AspNetCore.Tests;
 
@@ -98,15 +99,26 @@ public sealed class ErrorCodeFilesTests : IDisposable
     [Fact]
     public void Capture_WithWebApplicationEntryPoint_ReturnsItsServicesWithoutRunningPastBuild()
     {
-        IServiceProvider services = AppServices.Capture(EntryPoint(nameof(WebAppMain)), TimeSpan.FromMinutes(1));
+        IServiceProvider services = AppServices.Capture(EntryPoint(nameof(WebAppMain)), [], TimeSpan.FromMinutes(1));
 
         Assert.NotNull(services.GetService<IErrorCodeCatalog>());
     }
 
     [Fact]
+    public void Capture_WithEnvironmentArgument_BuildsTheHostInThatEnvironment()
+    {
+        IServiceProvider services = AppServices.Capture(
+            EntryPoint(nameof(WebAppMain)),
+            ["--environment", "Staging"],
+            TimeSpan.FromMinutes(1));
+
+        Assert.Equal("Staging", services.GetRequiredService<IHostEnvironment>().EnvironmentName);
+    }
+
+    [Fact]
     public void Capture_WithHostBuiltAfterAwait_ReturnsItsServices()
     {
-        IServiceProvider services = AppServices.Capture(EntryPoint(nameof(AwaitingMain)), TimeSpan.FromMinutes(1));
+        IServiceProvider services = AppServices.Capture(EntryPoint(nameof(AwaitingMain)), [], TimeSpan.FromMinutes(1));
 
         Assert.NotNull(services.GetService<IErrorCodeCatalog>());
     }
@@ -115,7 +127,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
     public void Capture_WithEntryPointThrowingBeforeBuild_ThrowsItsException()
     {
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
-            () => AppServices.Capture(EntryPoint(nameof(ThrowingMain)), TimeSpan.FromMinutes(1)));
+            () => AppServices.Capture(EntryPoint(nameof(ThrowingMain)), [], TimeSpan.FromMinutes(1)));
 
         Assert.Equal("Startup failed.", exception.Message);
     }
@@ -124,7 +136,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
     public void Capture_WithEntryPointBuildingNoHost_Throws()
     {
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
-            () => AppServices.Capture(EntryPoint(nameof(NoHostMain)), TimeSpan.FromMinutes(1)));
+            () => AppServices.Capture(EntryPoint(nameof(NoHostMain)), [], TimeSpan.FromMinutes(1)));
 
         Assert.Contains("without building a host", exception.Message, StringComparison.Ordinal);
     }

@@ -4,7 +4,8 @@
 # outside the repo, web apps referencing only the packed Hlibz.Results.AspNetCore: the package's
 # buildTransitive target must run the packed tool, which must stop the app at Build() (past it,
 # the app throws) and write the default and the named catalog, on each target framework, to
-# ErrorCodesDirectory or obj/; and must do nothing unless ErrorCodesGenerateFiles is on, or when
+# ErrorCodesDirectory or obj/; must run the app in the environment ErrorCodesGenerateFilesOptions
+# names; and must do nothing unless ErrorCodesGenerateFiles is on, or when
 # ErrorCodesGenerateFilesOnBuild turns it off for one build (as CI would).
 #
 # Usage: check-packed-error-code-files.sh <directory holding the .nupkg files>
@@ -39,7 +40,7 @@ cat > "$work/nuget.config" <<CONFIG
 </configuration>
 CONFIG
 
-# make_app <directory> <target framework> <properties>
+# make_app <directory> <target framework> <properties> [<statement before Build()>]
 make_app() {
   mkdir "$1"
   cat > "$1/Api.csproj" <<CSPROJ
@@ -61,6 +62,7 @@ using Hlibz.Results;
 using Hlibz.Results.AspNetCore;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+// Before Build.
 builder.Services
     .AddErrorCodeCatalog(typeof(ApiErrorCodes).Assembly)
     .AddErrorCodeCatalog("admin", typeof(ApiErrorCodes).Assembly);
@@ -73,6 +75,9 @@ public static class ApiErrorCodes
     public static readonly ErrorCode Down = new("api_1001", "The API is down.");
 }
 CS
+  if [ -n "${4:-}" ]; then
+    STATEMENT="$4" perl -0pi -e 's|// Before Build\.|$ENV{STATEMENT}|' "$1/Program.cs"
+  fi
 }
 
 # expect_files <directory> <label>
@@ -104,6 +109,13 @@ done
 make_app "$work/Default" net11.0 "<ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles>"
 dotnet build "$work/Default/Api.csproj"
 expect_files "$work/Default/obj" "ErrorCodesDirectory unset (obj/)"
+
+# The app only starts in Development, as one whose Production config lacks its secrets.
+make_app "$work/Environment" net11.0 \
+  "<ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles><ErrorCodesGenerateFilesOptions>--environment Development</ErrorCodesGenerateFilesOptions>" \
+  'if (!builder.Environment.IsDevelopment()) { throw new InvalidOperationException($"Started in {builder.Environment.EnvironmentName}."); }'
+dotnet build "$work/Environment/Api.csproj"
+expect_files "$work/Environment/obj" "--environment Development"
 
 make_app "$work/Off" net11.0 ""
 dotnet build "$work/Off/Api.csproj"

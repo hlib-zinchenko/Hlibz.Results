@@ -43,19 +43,20 @@ internal sealed class AppServices
     /// </summary>
     /// <param name="entryPoint">The app's entry point, a static method with no parameters or one
     /// <see cref="string"/> array.</param>
+    /// <param name="args">The command-line arguments the entry point gets.</param>
     /// <param name="timeout">How long to wait for the host.</param>
     /// <returns>The services of the first host the entry point builds.</returns>
     /// <exception cref="InvalidOperationException">The entry point returned without building a
     /// host.</exception>
     /// <exception cref="TimeoutException">No host was built within <paramref name="timeout"/>.</exception>
-    public static IServiceProvider Capture(MethodInfo entryPoint, TimeSpan timeout)
+    public static IServiceProvider Capture(MethodInfo entryPoint, string[] args, TimeSpan timeout)
     {
         ArgumentNullException.ThrowIfNull(entryPoint);
         AppServices capture = new();
         using IDisposable subscription = DiagnosticListener.AllListeners.Subscribe(capture);
         try
         {
-            Thread thread = new(() => capture.Run(entryPoint))
+            Thread thread = new(() => capture.Run(entryPoint, args))
             {
                 IsBackground = true,
                 Name = "App entry point",
@@ -118,10 +119,10 @@ internal sealed class AppServices
         "Design",
         "CA1031:Do not catch general exception types",
         Justification = "Whatever the app throws is handed to Capture's caller.")]
-    private void Run(MethodInfo entryPoint)
+    private void Run(MethodInfo entryPoint, string[] args)
     {
         _inEntryPoint.Value = true;
-        object?[] arguments = entryPoint.GetParameters().Length == 0 ? [] : [Array.Empty<string>()];
+        object?[] arguments = entryPoint.GetParameters().Length == 0 ? [] : [args];
         try
         {
             _ = entryPoint.Invoke(null, BindingFlags.DoNotWrapExceptions, null, arguments, null);

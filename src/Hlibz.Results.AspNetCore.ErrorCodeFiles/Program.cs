@@ -8,7 +8,9 @@ namespace Hlibz.Results.AspNetCore.Tool;
 /// Hlibz.Results.AspNetCore's buildTransitive target inside the app
 /// (<c>dotnet exec --depsfile app.deps.json --runtimeconfig app.runtimeconfig.json</c>), with:
 /// <c>--assembly</c> the app's assembly, <c>--output</c> the directory to write to and
-/// <c>--file-list</c> the file that lists the written files for the target's incremental check.
+/// <c>--file-list</c> the file that lists the written files for the target's incremental check;
+/// optionally <c>--environment</c>, the app's environment (<c>Production</c> unless the build's own
+/// environment variables say otherwise), as ASP.NET Core's build-time OpenAPI documents take it.
 /// </summary>
 internal static class Program
 {
@@ -33,7 +35,10 @@ internal static class Program
                                     ?? throw new InvalidOperationException(
                                         $"{app.GetName().Name} has no entry point.");
 
-            IServiceProvider services = AppServices.Capture(entryPoint, HostTimeout);
+            IServiceProvider services = AppServices.Capture(
+                entryPoint,
+                AppArguments(options),
+                HostTimeout);
             IReadOnlyList<string> files = ErrorCodeFilesWriter.Write(services, options["--output"]);
 
             File.WriteAllLines(options["--file-list"], files);
@@ -52,13 +57,40 @@ internal static class Program
         }
     }
 
+    /// <summary>
+    /// The arguments the app's entry point gets: <c>--environment</c> when the build asks for one,
+    /// also set as <c>ASPNETCORE_ENVIRONMENT</c> and <c>DOTNET_ENVIRONMENT</c> (this process
+    /// only) for an app that doesn't hand its arguments to its builder.
+    /// </summary>
+    private static string[] AppArguments(Dictionary<string, string> options)
+    {
+        if (!options.TryGetValue("--environment", out string? environment))
+        {
+            return [];
+        }
+
+        Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", environment);
+        Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", environment);
+        return ["--environment", environment];
+    }
+
     private static Dictionary<string, string> Parse(string[] args)
     {
         string[] required = ["--assembly", "--output", "--file-list"];
+        string[] known = [.. required, "--environment"];
         Dictionary<string, string> options = new(StringComparer.Ordinal);
-        for (int index = 0; index + 1 < args.Length; index += 2)
+        for (int index = 0; index < args.Length; index += 2)
         {
-            options[args[index]] = args[index + 1];
+            if (!known.Contains(args[index], StringComparer.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Unknown option {args[index]}; the options are {string.Join(", ", known)}.",
+                    nameof(args));
+            }
+
+            options[args[index]] = index + 1 < args.Length
+                ? args[index + 1]
+                : throw new ArgumentException($"{args[index]} needs a value.", nameof(args));
         }
 
         string[] missing = [.. required.Where(name => !options.ContainsKey(name))];

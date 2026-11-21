@@ -203,6 +203,7 @@ indented). It's set up like ASP.NET Core's build-time OpenAPI documents
 | `ErrorCodesGenerateFiles` | `OpenApiGenerateDocuments` | Turns the feature on. **Off by default** (see below). |
 | `ErrorCodesGenerateFilesOnBuild` | `OpenApiGenerateDocumentsOnBuild` | Writes them after every build; defaults to the above. |
 | `ErrorCodesDirectory` | `OpenApiDocumentsDirectory` | Where they go, relative to the project folder; `obj/` by default. |
+| `ErrorCodesGenerateFilesOptions` | `OpenApiGenerateDocumentsOptions` | Options for the tool: `--environment <Name>`. |
 | `GenerateErrorCodeFiles` target | `GenerateOpenApiDocuments` target | Writes them on demand. |
 
 ```xml
@@ -221,7 +222,9 @@ in every app that returns results, whose builds shouldn't start running the app 
 - It runs the app's `Main` until it builds its host, then stops it there, as the OpenAPI tool
   does: code before `builder.Build()` runs (keep it free of what only exists in production, such
   as secrets), no server starts. The environment is `Production` unless the build sets
-  `ASPNETCORE_ENVIRONMENT`.
+  `ASPNETCORE_ENVIRONMENT`, or `--environment Development` (any name) is in
+  `ErrorCodesGenerateFilesOptions`: a way round startup that needs config only `Development`
+  has, as with the OpenAPI tool's option of the same name.
 - A file is only rewritten when its content changes, and the target is skipped when the app, its
   copied assemblies and the project file are unchanged. Only a project with one target framework
   writes them on build; with several, run `dotnet msbuild -t:GenerateErrorCodeFiles

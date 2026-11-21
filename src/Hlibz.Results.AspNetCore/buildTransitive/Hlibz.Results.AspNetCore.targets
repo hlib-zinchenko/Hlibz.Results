@@ -6,6 +6,7 @@
         ErrorCodesGenerateFiles         OpenApiGenerateDocuments
         ErrorCodesGenerateFilesOnBuild  OpenApiGenerateDocumentsOnBuild
         ErrorCodesDirectory             OpenApiDocumentsDirectory
+        ErrorCodesGenerateFilesOptions  OpenApiGenerateDocumentsOptions
         GenerateErrorCodeFiles target   GenerateOpenApiDocuments target
 
       One difference: ErrorCodesGenerateFiles defaults to false. Referencing that OpenAPI package
@@ -28,6 +29,12 @@
     <ErrorCodesGenerateFilesOnBuild Condition="'$(ErrorCodesGenerateFilesOnBuild)' == ''">$(ErrorCodesGenerateFiles)</ErrorCodesGenerateFilesOnBuild>
     <!-- Where the files go: relative to the project folder unless absolute; obj/ by default. -->
     <ErrorCodesDirectory Condition="'$(ErrorCodesDirectory)' == ''">$(BaseIntermediateOutputPath)</ErrorCodesDirectory>
+    <!--
+        Options added to the tool's command line. The 'environment <Name>' option runs the app in
+        that environment (Production otherwise), as the OpenAPI tool's option of the same name
+        does. Long form options require a double-dash prefix.
+    -->
+    <ErrorCodesGenerateFilesOptions Condition="'$(ErrorCodesGenerateFilesOptions)' == ''" />
 
     <HlibzResultsErrorCodeFilesTool Condition="'$(HlibzResultsErrorCodeFilesTool)' == ''">$(MSBuildThisFileDirectory)../tools/Hlibz.Results.AspNetCore.ErrorCodeFiles.dll</HlibzResultsErrorCodeFilesTool>
     <_HlibzErrorCodeFileList>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', '$(MSBuildProjectName).ErrorCodeFiles.cache'))</_HlibzErrorCodeFileList>
@@ -61,7 +68,7 @@
       <_HlibzDotNet>$(DOTNET_HOST_PATH)</_HlibzDotNet>
       <_HlibzDotNet Condition="'$(_HlibzDotNet)' == ''">dotnet</_HlibzDotNet>
     </PropertyGroup>
-    <Exec Command="&quot;$(_HlibzDotNet)&quot; exec --depsfile &quot;$(ProjectDepsFilePath)&quot; --runtimeconfig &quot;$(ProjectRuntimeConfigFilePath)&quot; &quot;$(HlibzResultsErrorCodeFilesTool)&quot; --assembly &quot;$(TargetPath)&quot; --output &quot;$(_HlibzErrorCodesDirectory)&quot; --file-list &quot;$(_HlibzErrorCodeFileList)&quot;"
+    <Exec Command="&quot;$(_HlibzDotNet)&quot; exec --depsfile &quot;$(ProjectDepsFilePath)&quot; --runtimeconfig &quot;$(ProjectRuntimeConfigFilePath)&quot; &quot;$(HlibzResultsErrorCodeFilesTool)&quot; --assembly &quot;$(TargetPath)&quot; --output &quot;$(_HlibzErrorCodesDirectory)&quot; --file-list &quot;$(_HlibzErrorCodeFileList)&quot; $(ErrorCodesGenerateFilesOptions)"
           LogStandardErrorAsError="true" />
   </Target>
 

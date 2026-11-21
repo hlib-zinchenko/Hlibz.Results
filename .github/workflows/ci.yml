@@ -35,6 +35,12 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release
 
+      # The sample's error code files are committed build output: the build must not change them.
+      - name: Sample error code files are current
+        run: |
+          git status --porcelain -- samples
+          test -z "$(git status --porcelain -- samples)"
+
       - name: Pack
         run: dotnet pack --no-build --configuration Release --output ./artifacts
 
@@ -56,7 +62,16 @@ jobs:
           unzip -l ./artifacts/Hlibz.Results.[0-9]*.nupkg > contents.txt
           grep -qE " analyzers/dotnet/cs/Hlibz\.Results\.Generators\.dll$" contents.txt
           grep -qE " buildTransitive/Hlibz\.Results\.targets$" contents.txt
+          # The build-time error code files tool ships inside Hlibz.Results.AspNetCore, with the
+          # target that runs it.
+          unzip -l ./artifacts/Hlibz.Results.AspNetCore.[0-9]*.nupkg > contents.txt
+          grep -qE " tools/Hlibz\.Results\.AspNetCore\.ErrorCodeFiles\.dll$" contents.txt
+          grep -qE " buildTransitive/Hlibz\.Results\.AspNetCore\.targets$" contents.txt
 
       # A project that gets the packages only indirectly compiles with the packed generator.
       - name: Packed generator
         run: .github/scripts/check-packed-generator.sh ./artifacts
+
+      # A web app on the packed package writes its error code files at build time.
+      - name: Packed error code files
+        run: .github/scripts/check-packed-error-code-files.sh ./artifacts

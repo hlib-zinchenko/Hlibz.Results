@@ -6,7 +6,7 @@ A small shop, in two web apps over the same use cases:
 |---|---|
 | `Shop.Core` | Customer use cases returning `Result`s, entity rules as `Result`s, `Map`/`Bind`/`FromFailed`, FluentValidation → `Invalid`, a dependency failing with `Unavailable`. Error codes `orders_*` and `payments_*`. |
 | `Shop.Admin` | Back-office use cases in **their own assembly**, with their own codes `admin_*`, and `Result.Invalid` without FluentValidation. |
-| `Shop.MinimalApi` | Minimal APIs with `ToHttpResult()` (`ToCreatedHttpResult()` for 201 + `Location`), real authorization (401/403 bodies from the auth gate), `Invalid` mapped to **422**, the rate limiter's 429 through `WriteErrorAsync`, and two error code catalogs: customers' at `api/error-codes`, admins' at `api/admin/error-codes`. |
+| `Shop.MinimalApi` | Minimal APIs with `ToHttpResult()` (`ToCreatedHttpResult()` for 201 + `Location`), real authorization (401/403 bodies from the auth gate), `Invalid` mapped to **422**, the rate limiter's 429 through `WriteErrorAsync`, and two error code catalogs: customers' at `api/error-codes`, admins' at `api/admin/error-codes`, also written to `error-codes/` at build time. |
 | `Shop.Controllers` | Controllers with `ToEnvelopeActionResult()` (`ToCreatedEnvelopeActionResult()` for 201) and `UseEnvelope`, a 401 as a plain failed `Result`, and the catalogs injected (the admin one as a keyed service). |
 
 ```bash
@@ -50,6 +50,12 @@ app.MapErrorCodes("api/admin/error-codes", "admin")                        // ad
 
 `GET api/admin/error-codes` adds `admin_1001` and `admin_1002`. A code shared by both apps
 lives in an assembly both catalogs include; duplicates are only checked within one catalog.
+
+The same lists are written at build time to
+[`Shop.MinimalApi/error-codes`](Shop.MinimalApi/error-codes) (`error-codes.json`,
+`error-codes.admin.json`), set by `<ErrorCodesGenerateFiles>` and `<ErrorCodesDirectory>` in
+`Shop.MinimalApi.csproj`: a client
+reads them without running the API. They're committed, and CI fails when a build changes them.
 
 ## What each failure looks like (minimal API app)
 

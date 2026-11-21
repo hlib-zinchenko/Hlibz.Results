@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-Three NuGet packages released together from one tag:
+Three NuGet packages released together from one tag (plus a build tool packed inside one):
 
 - `src/Hlibz.Results`: `Result`/`Result<T>`, `ResultStatus`, `ErrorCode`, `ResultExtensions`
   (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog` (duplicates are found by code; only the same instance seen twice, an alias, is one code; reads each assembly's generated `ErrorCodeManifestAttribute`, scans only a dynamic Reflection.Emit assembly, throws for a compiled one referencing Hlibz.Results without the list). `Result.Accept`/`IResultVisitor` (internal, visible to AspNetCore) reach a `Result<T>`'s typed code without reflection, for Native AOT. No dependencies, no ASP.NET.
@@ -26,8 +26,15 @@ Three NuGet packages released together from one tag:
   such as the cookie login 302, is left as it is), `WriteErrorAsync`, `AddErrorCodeCatalog` +
   `MapErrorCodes`. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
   `IErrorCodeCatalog`) and any number of named ones (`AddErrorCodeCatalog(name, assemblies)`,
-  keyed services), so each app/audience publishes only its own assemblies' codes
-  (`MapErrorCodes(pattern, name)`). Every response shape is built in `Internal/ResultResponses` and written through `JsonTypeInfo`
+  keyed services, plus an `Internal/ErrorCodeCatalogName` service each since keyed ones can't be
+  listed), so each app/audience publishes only its own assemblies' codes
+  (`MapErrorCodes(pattern, name)`). Build-time files:
+  `buildTransitive/Hlibz.Results.AspNetCore.targets` runs the tool after `Build`. Its properties
+  mirror Microsoft.Extensions.ApiDescription.Server's one for one (`ErrorCodesGenerateFiles`,
+  `ErrorCodesGenerateFilesOnBuild`, `ErrorCodesDirectory` defaulting to `obj/`,
+  `GenerateErrorCodeFiles` target): keep it that way rather than adding settings of our own. The
+  one difference is deliberate: `ErrorCodesGenerateFiles` is off by default, since every app
+  returning results references this package. Every response shape is built in `Internal/ResultResponses` and written through `JsonTypeInfo`
   (`Internal/ResultsJsonContext`, source-generated metadata `AddResultErrorResponses` appends to
   the minimal-API and MVC JSON options, is what serializes them under Native AOT); minimal API and
   MVC results defer to it at execution time (`DeferredHttpResult`/`DeferredActionResult`) so they
@@ -36,6 +43,15 @@ Three NuGet packages released together from one tag:
   (`EnvelopeContent` in, any object out); `EnvelopeAlwaysOk` sends envelope responses as 200
   with the real status inside (`ResultResponses.EnvelopeHttpStatusCode`). Both apply to the
   `ToEnvelope…` methods and, with `UseEnvelope`, to `WriteErrorAsync` and the auth gate.
+- `src/Hlibz.Results.AspNetCore.ErrorCodeFiles` (net10.0 exe, never a package; packed inside
+  Hlibz.Results.AspNetCore under `tools/`): runs in the app (`dotnet exec` on the app's deps.json
+  and runtimeconfig.json, so one build serves net10.0 and net11.0 apps), runs its entry point
+  until the `HostBuilt` diagnostic event, aborts it with `HostAbortedException` (`AppServices`,
+  as build-time OpenAPI and the EF tools do), then calls `Internal/ErrorCodeFiles.Write` by name
+  (`ErrorCodeFilesWriter`: no compile-time reference, or the package would depend on the tool it
+  packs). Files use the app's HTTP JSON options, indented, `\n` line ends, rewritten only when
+  changed. The samples import the targets from `src` (`samples/Directory.Build.targets`); CI's
+  `.github/scripts/check-packed-error-code-files.sh` runs them from the packed nupkg.
 - `src/Hlibz.Results.FluentValidation`: `ValidationResult` → failure, the caller picking the
   status: `ToErrorResult()` (`Error`) or `ToInvalidResult()` (`Invalid`), plus `<T>` versions;
   `ToErrors()` for the raw dictionary. Deliberately plain extension methods, not C# 14 static
@@ -57,7 +73,8 @@ carry an envelope.
 
 - `samples/`: a shop (`Shop.Core` customer codes, `Shop.Admin` admin codes in a separate
   assembly) served by `Shop.MinimalApi` and `Shop.Controllers`, net11.0 only, never packed,
-  referencing the library projects. Keep each app's `.http` file and `samples/README.md` in step
+  referencing the library projects. `Shop.MinimalApi/error-codes/*.json` are build output,
+  committed; CI fails when a build changes them. Keep each app's `.http` file and `samples/README.md` in step
   with the responses.
 
 ## Requires

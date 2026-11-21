@@ -1,0 +1,22 @@
+[
+  {
+    "code": "orders_1001",
+    "message": "The order is closed and can't be changed."
+  },
+  {
+    "code": "orders_1002",
+    "message": "There isn't enough of this product in stock."
+  },
+  {
+    "code": "orders_1003",
+    "message": "The order belongs to another customer."
+  },
+  {
+    "code": "orders_1004",
+    "message": "An order needs at least one line before it can be paid."
+  },
+  {
+    "code": "payments_1001",
+    "message": "The payment provider is temporarily unavailable. Please retry in a minute."
+  }
+]

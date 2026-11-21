@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+      The build-time error code files tool, packed inside Hlibz.Results.AspNetCore under tools/
+      and run by its buildTransitive target. It runs inside the app, on the app's deps.json and
+      runtimeconfig.json (dotnet exec), so one net10.0 build serves net10.0 and net11.0 apps, and
+      it compiles against no Hlibz package: it finds the writer by name in the app's own copy of
+      Hlibz.Results.AspNetCore. Never a package of its own.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <UseAppHost>false</UseAppHost>
+    <IsPackable>false</IsPackable>
+    <EnablePackageValidation>false</EnablePackageValidation>
+    <RootNamespace>Hlibz.Results.AspNetCore.Tool</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hlibz.Results.AspNetCore.Tests" />
+  </ItemGroup>
+
+</Project>

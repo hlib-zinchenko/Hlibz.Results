@@ -85,7 +85,12 @@ public static class ResultServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        return services.AddKeyedSingleton<IErrorCodeCatalog>(name, CreateValidated(assemblies));
+
+        // Keyed services can't be listed, so the name is kept for whatever must find every
+        // catalog: the build-time error code files.
+        return services
+            .AddKeyedSingleton<IErrorCodeCatalog>(name, CreateValidated(assemblies))
+            .AddSingleton(new ErrorCodeCatalogName(name));
     }
 
     private static ErrorCodeCatalog CreateValidated(IEnumerable<Assembly> assemblies)

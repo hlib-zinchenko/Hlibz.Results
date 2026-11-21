@@ -1,0 +1,72 @@
+<Project>
+  <!--
+      Build-time error code files, set up like ASP.NET Core's build-time OpenAPI documents
+      (Microsoft.Extensions.ApiDescription.Server), property for property:
+
+        ErrorCodesGenerateFiles         OpenApiGenerateDocuments
+        ErrorCodesGenerateFilesOnBuild  OpenApiGenerateDocumentsOnBuild
+        ErrorCodesDirectory             OpenApiDocumentsDirectory
+        GenerateErrorCodeFiles target   GenerateOpenApiDocuments target
+
+      One difference: ErrorCodesGenerateFiles defaults to false. Referencing that OpenAPI package
+      is itself the opt-in; this one is referenced by every app that returns results, whose builds
+      shouldn't start running its entry point unasked.
+
+      Each error code catalog the app registers (AddErrorCodeCatalog) is written as the list
+      MapErrorCodes serves: error-codes.json for the default catalog, error-codes.{name}.json for
+      a named one. The tool runs inside the app (its deps.json and runtimeconfig.json) and runs
+      the app's entry point only until it builds its host, as the OpenAPI tool does: code before
+      Build() runs, nothing after it.
+  -->
+  <PropertyGroup>
+    <!-- If 'true', enables writing the files. Otherwise the feature is off entirely. -->
+    <ErrorCodesGenerateFiles Condition="'$(ErrorCodesGenerateFiles)' == ''">false</ErrorCodesGenerateFiles>
+    <!--
+        If 'true' (the default when ErrorCodesGenerateFiles is), writes them after every build of a
+        project with one target framework. Set to 'false' to run GenerateErrorCodeFiles yourself.
+    -->
+    <ErrorCodesGenerateFilesOnBuild Condition="'$(ErrorCodesGenerateFilesOnBuild)' == ''">$(ErrorCodesGenerateFiles)</ErrorCodesGenerateFilesOnBuild>
+    <!-- Where the files go: relative to the project folder unless absolute; obj/ by default. -->
+    <ErrorCodesDirectory Condition="'$(ErrorCodesDirectory)' == ''">$(BaseIntermediateOutputPath)</ErrorCodesDirectory>
+
+    <HlibzResultsErrorCodeFilesTool Condition="'$(HlibzResultsErrorCodeFilesTool)' == ''">$(MSBuildThisFileDirectory)../tools/Hlibz.Results.AspNetCore.ErrorCodeFiles.dll</HlibzResultsErrorCodeFilesTool>
+    <_HlibzErrorCodeFileList>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', '$(MSBuildProjectName).ErrorCodeFiles.cache'))</_HlibzErrorCodeFileList>
+  </PropertyGroup>
+
+  <!--
+      The file list doubles as the stamp: the JSON files keep their timestamp when their content
+      doesn't change, so they can't be outputs. A listed file that's gone means running again.
+  -->
+  <Target Name="_HlibzCheckErrorCodeFiles">
+    <ReadLinesFromFile File="$(_HlibzErrorCodeFileList)" Condition="Exists('$(_HlibzErrorCodeFileList)')">
+      <Output TaskParameter="Lines" ItemName="_HlibzErrorCodeFiles" />
+    </ReadLinesFromFile>
+    <Delete Files="$(_HlibzErrorCodeFileList)" Condition="'@(_HlibzErrorCodeFiles)' != '' and !Exists('%(_HlibzErrorCodeFiles.Identity)')" />
+  </Target>
+
+  <!--
+      Inputs: the app and every assembly copied next to it, since a module's codes can change
+      without the app recompiling, and the project file, where the directory is set.
+  -->
+  <Target Name="GenerateErrorCodeFiles"
+          DependsOnTargets="_HlibzCheckErrorCodeFiles"
+          Inputs="$(MSBuildProjectFullPath);$(TargetPath);@(ReferenceCopyLocalPaths);$(HlibzResultsErrorCodeFilesTool)"
+          Outputs="$(_HlibzErrorCodeFileList)">
+    <Error Condition="'$(ErrorCodesGenerateFiles)' != 'true'"
+           Text="Error code file generation is disabled. Add '&lt;ErrorCodesGenerateFiles>true&lt;/ErrorCodesGenerateFiles>' to the project." />
+    <Error Condition="'$(TargetFramework)' == ''"
+           Text="GenerateErrorCodeFiles needs one target framework: pass -p:TargetFramework=..." />
+    <PropertyGroup>
+      <_HlibzErrorCodesDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)', '$(ErrorCodesDirectory)').TrimEnd('\').TrimEnd('/'))</_HlibzErrorCodesDirectory>
+      <_HlibzDotNet>$(DOTNET_HOST_PATH)</_HlibzDotNet>
+      <_HlibzDotNet Condition="'$(_HlibzDotNet)' == ''">dotnet</_HlibzDotNet>
+    </PropertyGroup>
+    <Exec Command="&quot;$(_HlibzDotNet)&quot; exec --depsfile &quot;$(ProjectDepsFilePath)&quot; --runtimeconfig &quot;$(ProjectRuntimeConfigFilePath)&quot; &quot;$(HlibzResultsErrorCodeFilesTool)&quot; --assembly &quot;$(TargetPath)&quot; --output &quot;$(_HlibzErrorCodesDirectory)&quot; --file-list &quot;$(_HlibzErrorCodeFileList)&quot;"
+          LogStandardErrorAsError="true" />
+  </Target>
+
+  <Target Name="_HlibzGenerateErrorCodeFilesOnBuild"
+          AfterTargets="Build"
+          Condition="'$(ErrorCodesGenerateFilesOnBuild)' == 'true' and '$(TargetFrameworks)' == ''"
+          DependsOnTargets="GenerateErrorCodeFiles" />
+</Project>

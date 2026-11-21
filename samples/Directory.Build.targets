@@ -1,0 +1,14 @@
+<Project>
+
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+    <!--
+        The build-time error code files target, as the Hlibz.Results.AspNetCore package brings it
+        to your own app, running the tool from its project's output.
+    -->
+    <PropertyGroup>
+        <HlibzResultsErrorCodeFilesTool>$(MSBuildThisFileDirectory)../src/Hlibz.Results.AspNetCore.ErrorCodeFiles/bin/$(Configuration)/net10.0/Hlibz.Results.AspNetCore.ErrorCodeFiles.dll</HlibzResultsErrorCodeFilesTool>
+    </PropertyGroup>
+    <Import Project="$(MSBuildThisFileDirectory)../src/Hlibz.Results.AspNetCore/buildTransitive/Hlibz.Results.AspNetCore.targets" />
+
+</Project>

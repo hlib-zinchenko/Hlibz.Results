@@ -6,6 +6,7 @@
     <Project Path="samples/Shop.MinimalApi/Shop.MinimalApi.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/Hlibz.Results.AspNetCore.ErrorCodeFiles/Hlibz.Results.AspNetCore.ErrorCodeFiles.csproj" />
     <Project Path="src/Hlibz.Results.AspNetCore/Hlibz.Results.AspNetCore.csproj" />
     <Project Path="src/Hlibz.Results.FluentValidation/Hlibz.Results.FluentValidation.csproj" />
     <Project Path="src/Hlibz.Results.Generators/Hlibz.Results.Generators.csproj" />

@@ -56,7 +56,9 @@ Validation error keys follow your JSON naming policy per path segment: `Items[0]
 For clients that want one shape for every body, success included, there is an opt-in envelope
 (`ToEnvelopeHttpResult()`, `WithResultEnvelopes()`, or your own shape), which can also be sent
 as HTTP 200 always. The error code catalog publishes every code your app can return, per app if
-you have several.
+you have several, and with `<ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles>` in the
+app's project every build writes the catalogs to JSON files too, for clients that shouldn't wait
+for a running API (set up like ASP.NET Core's build-time OpenAPI documents).
 
 AOT-compatible: `AddResultErrorResponses` adds compile-time JSON metadata for `ErrorResponse`
 and `ResultEnvelope`. In a Native AOT app (reflection-based JSON off), add to your

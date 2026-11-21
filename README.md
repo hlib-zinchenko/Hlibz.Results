@@ -191,6 +191,47 @@ is trimming-safe. An assembly that references Hlibz.Results but was compiled wit
 generator makes the catalog throw; one that doesn't reference it has no codes. A code the list
 can't name, in a private or protected nested class, is warning [`HRES001`](#build-warnings).
 
+### Error code files at build time
+
+Front ends and other clients needn't wait for a running API to get the codes: the build can
+write each catalog to a JSON file, as the list `MapErrorCodes` serves (same JSON options,
+indented). It's set up like ASP.NET Core's build-time OpenAPI documents
+(`Microsoft.Extensions.ApiDescription.Server`), property for property:
+
+| Error code files | OpenAPI documents | What it does |
+|---|---|---|
+| `ErrorCodesGenerateFiles` | `OpenApiGenerateDocuments` | Turns the feature on. **Off by default** (see below). |
+| `ErrorCodesGenerateFilesOnBuild` | `OpenApiGenerateDocumentsOnBuild` | Writes them after every build; defaults to the above. |
+| `ErrorCodesDirectory` | `OpenApiDocumentsDirectory` | Where they go, relative to the project folder; `obj/` by default. |
+| `GenerateErrorCodeFiles` target | `GenerateOpenApiDocuments` target | Writes them on demand. |
+
+```xml
+<PropertyGroup>
+  <ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles>
+  <ErrorCodesDirectory>$(MSBuildProjectDirectory)/../../contracts</ErrorCodesDirectory>
+</PropertyGroup>
+```
+
+The one difference: referencing the OpenAPI package is itself the opt-in, while this package is
+in every app that returns results, whose builds shouldn't start running the app unasked.
+
+- `error-codes.json` holds the default catalog, `error-codes.{name}.json` each named one
+  (`error-codes.admin.json`). A name a file name can't hold (`/`, `:` and the like) fails the
+  build. Files of a catalog you remove are left as they are.
+- It runs the app's `Main` until it builds its host, then stops it there, as the OpenAPI tool
+  does: code before `builder.Build()` runs (keep it free of what only exists in production, such
+  as secrets), no server starts. The environment is `Production` unless the build sets
+  `ASPNETCORE_ENVIRONMENT`.
+- A file is only rewritten when its content changes, and the target is skipped when the app, its
+  copied assemblies and the project file are unchanged. Only a project with one target framework
+  writes them on build; with several, run `dotnet msbuild -t:GenerateErrorCodeFiles
+  -p:TargetFramework=net10.0`.
+- To skip them in one build, CI's say: `dotnet build -p:ErrorCodesGenerateFilesOnBuild=false`.
+- With clients in other repositories, write the files into the API's own repository and commit
+  them: a changed code shows in review, CI can fail on stale ones with `git diff --exit-code`
+  after the build, and each client copies what it needs from there, from a checkout or from
+  GitHub, with no API running.
+
 ## Controllers
 
 ```csharp

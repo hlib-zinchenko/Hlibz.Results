@@ -35,7 +35,7 @@ public sealed class ControllerTests
         JsonElement body = await response.ReadJsonAsync();
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Equal("Resource was not found.", body.GetProperty("message").GetString());
+        Assert.Equal("Order 7 was not found.", body.GetProperty("message").GetString());
     }
 
     [Fact]

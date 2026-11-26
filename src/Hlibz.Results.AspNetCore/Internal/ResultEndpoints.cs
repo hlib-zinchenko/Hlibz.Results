@@ -86,7 +86,87 @@ internal static class ResultEndpoints
             envelope
                 ? EnvelopeResponse(statusCode, resultType, options)
                 : PlainResponse(statusCode, resultType));
+
+        if (ErrorSetOf(handler.ReturnType) is { } errorSet)
+        {
+            DocumentErrors(metadata, errorSet, envelope, options);
+        }
     }
+
+    /// <summary>
+    /// Documents the errors <paramref name="errorSet"/> declares: one response per status code
+    /// they are sent with (unless the endpoint documents that status itself), and every error in
+    /// <see cref="DeclaredErrorsMetadata"/>.
+    /// </summary>
+    private static void DocumentErrors(
+        IList<object> metadata,
+        Type errorSet,
+        bool envelope,
+        ResultHttpOptions options)
+    {
+        Type? responseType = typeof(ErrorResponse);
+        if (envelope)
+        {
+            responseType = options.CreateEnvelope is null ? typeof(ResultEnvelope) : null;
+        }
+
+        DeclaredErrorResponse[] errors =
+        [
+            .. ErrorSetDescriptor.For(errorSet).ErrorTypes.Select(type =>
+            {
+                ErrorDescriptor error = ErrorDescriptor.For(type);
+                int statusCode = ResultResponses.StatusCodeFor(error.Status, options);
+                return new DeclaredErrorResponse
+                {
+                    Error = error,
+                    StatusCode = envelope
+                        ? ResultResponses.EnvelopeHttpStatusCode(statusCode, options)
+                        : statusCode,
+                    ResponseType = responseType,
+                };
+            }),
+        ];
+
+        HashSet<int> documented =
+        [
+            .. metadata.OfType<IProducesResponseTypeMetadata>().Select(produces => produces.StatusCode),
+        ];
+        foreach (int statusCode in errors.Select(error => error.StatusCode).Where(documented.Add))
+        {
+            metadata.Add(responseType is null
+                ? new ProducesResponseTypeMetadata(statusCode)
+                : new ProducesResponseTypeMetadata(statusCode, responseType, [JsonContentType]));
+        }
+
+        metadata.Add(new DeclaredErrorsMetadata { Errors = errors });
+    }
+
+    /// <summary>
+    /// The error set of a handler returning a <see cref="Result{T, TError}"/> (optionally in a
+    /// <c>Task</c> or <c>ValueTask</c>), or <see langword="null"/>.
+    /// </summary>
+    private static Type? ErrorSetOf(Type returnType)
+    {
+        Type type = UnwrapTask(returnType);
+        return type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Result<,>)
+            ? type.GetGenericArguments()[1]
+            : null;
+    }
+
+    private static Type UnwrapTask(Type returnType) =>
+        returnType.IsGenericType
+        && returnType.GetGenericTypeDefinition() is { } definition
+        && (definition == typeof(Task<>) || definition == typeof(ValueTask<>))
+            ? returnType.GetGenericArguments()[0]
+            : returnType;
+
+    /// <summary>
+    /// Gets whether a result of <paramref name="resultType"/> (as <see cref="ResultTypeOf"/>
+    /// returns it) has a value on success: not a plain <see cref="Result"/>, nor a
+    /// <c>Result&lt;Unit&gt;</c>.
+    /// </summary>
+    private static bool HasValue(Type resultType) =>
+        resultType.IsGenericType && resultType.GetGenericArguments()[0] != typeof(Unit);
 
     /// <summary>
     /// The status code a success goes out with, as <see cref="ResultResponses.CreateContext"/>
@@ -129,7 +209,7 @@ internal static class ResultEndpoints
     /// <c>Result</c> as the success.
     /// </summary>
     private static ProducesResponseTypeMetadata PlainResponse(int statusCode, Type resultType) =>
-        resultType.IsGenericType && statusCode != StatusCodes.Status204NoContent
+        HasValue(resultType) && statusCode != StatusCodes.Status204NoContent
             ? new ProducesResponseTypeMetadata(
                 statusCode,
                 resultType.GetGenericArguments()[0],
@@ -164,7 +244,7 @@ internal static class ResultEndpoints
         Justification = "Documentation only; a missing instantiation is caught and left undocumented.")]
     private static Type? EnvelopeTypeOf(Type resultType)
     {
-        if (!resultType.IsGenericType)
+        if (!HasValue(resultType))
         {
             return typeof(ResultEnvelope);
         }
@@ -203,11 +283,7 @@ internal static class ResultEndpoints
     /// </summary>
     private static Type? ResultTypeOf(Type returnType)
     {
-        Type type = returnType.IsGenericType
-            && returnType.GetGenericTypeDefinition() is { } definition
-            && (definition == typeof(Task<>) || definition == typeof(ValueTask<>))
-                ? returnType.GetGenericArguments()[0]
-                : returnType;
+        Type type = UnwrapTask(returnType);
 
         for (Type? current = type; current is not null; current = current.BaseType)
         {

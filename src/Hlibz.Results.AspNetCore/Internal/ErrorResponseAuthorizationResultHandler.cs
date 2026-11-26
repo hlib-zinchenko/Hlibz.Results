@@ -36,11 +36,14 @@ internal sealed class ErrorResponseAuthorizationResultHandler(IOptions<ResultHtt
             return;
         }
 
-        ResultMessages messages = options.Value.Messages;
-        string message = authorizeResult.Challenged ? messages.Unauthorized : messages.Forbidden;
-
+        Error error = authorizeResult.Challenged ? new Unauthorized() : new Forbidden();
         await context.Response
-            .WriteErrorAsync(message, code: null, context.RequestAborted)
+            .WriteErrorAsync(
+                ResultResponses.ToErrorResponse(
+                    error,
+                    options.Value,
+                    ResultResponses.GetJsonOptions(context)),
+                context.RequestAborted)
             .ConfigureAwait(false);
     }
 }

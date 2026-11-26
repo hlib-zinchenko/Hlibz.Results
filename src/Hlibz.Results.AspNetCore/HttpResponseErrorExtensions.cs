@@ -48,29 +48,22 @@ public static class HttpResponseErrorExtensions
     }
 
     /// <summary>
-    /// Writes an error body with <paramref name="message"/> (the default message for the
-    /// response's status code when <see langword="null"/>) and <paramref name="code"/>.
+    /// Writes an error body with <paramref name="message"/> and <paramref name="code"/>.
     /// </summary>
     /// <param name="response">The response to write to; its status code is already set.</param>
-    /// <param name="message">The message, or <see langword="null"/> for the default.</param>
+    /// <param name="message">The message.</param>
     /// <param name="code">The error code, if any.</param>
     /// <param name="cancellationToken">A token to cancel the write.</param>
     /// <returns>A task that completes when the body is written.</returns>
     public static Task WriteErrorAsync(
         this HttpResponse response,
-        string? message,
+        string message,
         string? code = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(response);
-        ResultHttpOptions options = ResultResponses.GetOptions(response.HttpContext.RequestServices);
-        ErrorResponse error = new()
-        {
-            Message = message
-                      ?? ResultResponses.DefaultMessageFor(response.StatusCode, options.Messages),
-            Code = code,
-        };
-        return response.WriteErrorAsync(error, cancellationToken);
+        ArgumentNullException.ThrowIfNull(message);
+        return response.WriteErrorAsync(new ErrorResponse { Message = message, Code = code }, cancellationToken);
     }
 
     /// <summary>
@@ -99,7 +92,7 @@ public static class HttpResponseErrorExtensions
         response.StatusCode = ResultResponses.StatusCodeFor(result.Status, options);
         return response.WriteErrorAsync(
             ResultResponses.ToErrorResponse(
-                result,
+                result.Error,
                 options,
                 ResultResponses.GetJsonOptions(context)),
             cancellationToken);

@@ -6,15 +6,33 @@ Guidance for Claude Code when working in this repository.
 
 Three NuGet packages released together from one tag (plus a build tool packed inside one):
 
-- `src/Hlibz.Results`: `Result`/`Result<T>`, `ResultStatus`, `ErrorCode`, `ResultExtensions`
-  (`Map`/`MapAsync`/`Bind`), `ErrorCodeCatalog` (duplicates are found by code; only the same instance seen twice, an alias, is one code; reads each assembly's generated `ErrorCodeManifestAttribute`, scans only a dynamic Reflection.Emit assembly, throws for a compiled one referencing Hlibz.Results without the list). `Result.Accept`/`IResultVisitor` (internal, visible to AspNetCore) reach a `Result<T>`'s typed code without reflection, for Native AOT. No dependencies, no ASP.NET.
-- `src/Hlibz.Results.Generators` (netstandard2.0, Roslyn 4.8, packed inside Hlibz.Results under
-  `analyzers/dotnet/cs` with `buildTransitive/Hlibz.Results.targets`): `ErrorCodeManifestGenerator`
-  writes each assembly's error code list, `ErrorCodeAnalyzer` warns (`HRES001`) about a code the
-  list can't name; `ErrorCodeSymbols` holds the rules the old reflection scan used. Tests and
-  samples (`samples/Directory.Build.props`) reference it as an analyzer. CI's
-  `.github/scripts/check-packed-generator.sh` builds an indirect consumer from the packed nupkg.
-  Rules are tracked in `AnalyzerReleases.*.md` and the README's "Build warnings".
+- `src/Hlibz.Results`: typed errors. `Error` (abstract record: `Code`/`Status`/`Message` from the
+  type's `[Error(code, status, message)]` via `ErrorDescriptor.For(GetType())`, all `[JsonIgnore]`;
+  `Message` isn't virtual, errors override the protected `FormatMessage`, so it never goes out in
+  the details; `PrintMembers` prints only `Code` of the base), the `closed` `AmbientError`s
+  (`ValidationFailed`, `Unauthorized`, `Forbidden`, `Unavailable`: any result accepts them, no
+  set declares them), `Result` (any error) / `Result<T>` / `Result<T, TError>` (`TError` a union
+  of error types, `where TError : struct, IUnion`; implicit conversions from the value and from
+  `Error`, the latter wrapping the error in the union through the generated
+  `ErrorSetDescriptor`; `DeclaredError` is the union, null on success or for an ambient error),
+  `Unit`, `ResultExtensions` (`Map`/`MapAsync`/`Bind`, set-keeping overloads), `ErrorCodeCatalog`
+  (the given assemblies' generated lists plus Hlibz.Results' own ambient errors; duplicates across
+  assemblies throw; an assembly referencing Hlibz.Results without a list throws). A union
+  conversion doesn't chain into a user-defined one (CS0029), hence the conversion from `Error`.
+  `Result.Accept`/`IResultVisitor` (internal, visible to AspNetCore) reach a `Result<T>`'s typed
+  code without reflection, for Native AOT. No dependencies, no ASP.NET. The generator also runs on
+  this project (ambient errors are listed the same way).
+- `src/Hlibz.Results.Generators` (netstandard2.0, Roslyn 4.8: a union is a
+  `UnionDeclarationSyntax : TypeDeclarationSyntax` and compiles to a struct implementing `IUnion`
+  with one public one-parameter constructor per case, so no newer API is needed; packed inside
+  Hlibz.Results under `analyzers/dotnet/cs` with `buildTransitive/Hlibz.Results.targets`):
+  `ErrorManifestGenerator` writes each assembly's `ErrorManifestAttribute` (an `ErrorDescriptor`
+  per described error type, an `ErrorSetDescriptor` per union of error types with a `switch` that
+  wraps an error in the union); `ErrorAnalyzer` reports `HRES001`-`HRES006` (all errors: what
+  would fail at runtime); `ErrorSymbols` holds the shared rules. The tests compile C# 15 in memory
+  with Roslyn 5.12 (`VersionOverride`), the SDK's. CI's `.github/scripts/check-packed-generator.sh`
+  builds an indirect consumer from the packed nupkg. Rules are tracked in
+  `AnalyzerReleases.*.md` and the README's "Build errors".
 - `src/Hlibz.Results.AspNetCore`: result → HTTP for minimal APIs (`HttpResultExtensions`) and
   controllers (`ActionResultExtensions`), `ErrorResponse`, opt-in `ResultEnvelope`,
   `ResultHttpOptions` (`AddResultErrorResponses`), `WithResultResponses()`/`WithResultEnvelopes()`
@@ -22,9 +40,17 @@ Three NuGet packages released together from one tag (plus a build tool packed in
   `ToEnvelopeHttpResult()` would, passing anything else through, and a `Finally` convention swaps
   the inferred `200 Result<T>` for `200 T`/`200 ResultEnvelope<T>`; `Internal/ResultEndpoints`),
   the auth gate's error body
-  (`Internal/ErrorResponseAuthorizationResultHandler`, only on a 401/403: a scheme's redirect,
-  such as the cookie login 302, is left as it is), `WriteErrorAsync`, `AddErrorCodeCatalog` +
-  `MapErrorCodes`. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
+  (`Internal/ErrorResponseAuthorizationResultHandler`, only on a 401/403, written as the ambient
+  `Unauthorized`/`Forbidden`: a scheme's redirect, such as the cookie login 302, is left as it is), `WriteErrorAsync`, `AddErrorCodeCatalog` +
+  `MapErrorCodes` (published as `ErrorCodeInfo`s, `Internal/ErrorCodeInfos`: code, HTTP status,
+  message, details JSON schema written with strict number handling). An error's data goes out as
+  `ErrorResponse.Details`/the envelope's `Details` (the error record, `ResultResponses.DetailsOf`:
+  only with `HasDetails`, never for `ValidationFailed`, whose messages are `ValidationErrors`, and
+  only when the JSON options can write the type, so a missing AOT registration drops the details
+  instead of failing the response). `WithResultResponses`/`WithResultEnvelopes` document a
+  `Result<T, TError>` handler's errors: a `ProducesResponseTypeMetadata` per status the set's errors
+  go out with (unless the endpoint documents it) and `DeclaredErrorsMetadata` (each error with its
+  status and body type) for Hlibz.OpenApi.Results. `Result<Unit, …>` succeeds without a body. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
   `IErrorCodeCatalog`) and any number of named ones (`AddErrorCodeCatalog(name, assemblies)`,
   keyed services, plus an `Internal/ErrorCodeCatalogName` service each since keyed ones can't be
   listed), so each app/audience publishes only its own assemblies' codes
@@ -45,27 +71,30 @@ Three NuGet packages released together from one tag (plus a build tool packed in
   (`EnvelopeContent` in, any object out); `EnvelopeAlwaysOk` sends envelope responses as 200
   with the real status inside (`ResultResponses.EnvelopeHttpStatusCode`). Both apply to the
   `ToEnvelope…` methods and, with `UseEnvelope`, to `WriteErrorAsync` and the auth gate.
-- `src/Hlibz.Results.AspNetCore.ErrorCodeFiles` (net10.0 exe, never a package; packed inside
+- `src/Hlibz.Results.AspNetCore.ErrorCodeFiles` (net11.0 exe, never a package; packed inside
   Hlibz.Results.AspNetCore under `tools/`): runs in the app (`dotnet exec` on the app's deps.json
-  and runtimeconfig.json, so one build serves net10.0 and net11.0 apps), runs its entry point
+  and runtimeconfig.json), runs its entry point
   until the `HostBuilt` diagnostic event, aborts it with `HostAbortedException` (`AppServices`,
   as build-time OpenAPI and the EF tools do), then calls `Internal/ErrorCodeFiles.Write` by name
   (`ErrorCodeFilesWriter`: no compile-time reference, or the package would depend on the tool it
   packs). Files use the app's HTTP JSON options, indented, `\n` line ends, rewritten only when
   changed. The samples import the targets from `src` (`samples/Directory.Build.targets`); CI's
   `.github/scripts/check-packed-error-code-files.sh` runs them from the packed nupkg.
-- `src/Hlibz.Results.FluentValidation`: `ValidationResult` → failure, the caller picking the
-  status: `ToErrorResult()` (`Error`) or `ToInvalidResult()` (`Invalid`), plus `<T>` versions;
-  `ToErrors()` for the raw dictionary. Deliberately plain extension methods, not C# 14 static
-  extensions on `Result`: BannedApiAnalyzers can't ban calls to C# 14 extension members, and
-  plain ones work with any consumer C# version.
+- `src/Hlibz.Results.FluentValidation`: `ToValidationFailed()` (a `ValidationFailed`, which any
+  result accepts) and `ToErrors()` for the raw dictionary. Deliberately plain extension methods:
+  BannedApiAnalyzers can't ban calls to extension members.
 
-Validation keys are stored raw in `Result`; casing is an HTTP concern (`ValidationKeyFormatter`).
-Likewise `ResultStatus` says what failed (`Error` = business rule / bad request, `Invalid` =
-validation, `Unavailable` = dependency down) and `ResultHttpOptions.StatusCodes` maps it to HTTP
-(defaults 400/400/503; teams remap `Invalid`/`Error` to 422). Every status code goes through
+Validation keys are stored raw in `ValidationFailed`; casing is an HTTP concern
+(`ValidationKeyFormatter`). Likewise `ResultStatus` (on each `[Error]`) says what failed
+(`Error` = business rule / bad request, `Invalid` = validation, `Unavailable` = dependency down)
+and `ResultHttpOptions.StatusCodes` maps it to HTTP (defaults 400/400/503; teams remap
+`Invalid`/`Error` to 422). Every status code goes through
 `ResultResponses.StatusCodeFor(status, options)`; adding a `ResultStatus` means a default in
-`ResultHttpOptions.StatusCodes` and a message in `ResultMessages`. A success's code is resolved
+`ResultHttpOptions.StatusCodes`. Messages come from the errors (`ResultHttpOptions.SuccessMessage`
+is a successful envelope's).
+
+A `union` compiles to a struct without equality members, so CA1815 flags every error set under
+`AnalysisMode=All`: suppress it on the union (`#pragma`), as the tests and sample do. A success's code is resolved
 per request (`ResultResponses.CreateContext`, read from the endpoint by `DeferredHttpResult`/
 `DeferredActionResult`) and per endpoint for OpenAPI (`ResultEndpoints.Document`), most specific
 first: a `ToCreated…` call or `WithCreatedLocation` (201 + `Location`), the endpoint's last
@@ -73,26 +102,26 @@ first: a `ToCreated…` call or `WithCreatedLocation` (201 + `Location`), the en
 controller), `SuccessStatusCodes[method]`, `StatusCodes[Success]`. A 204 has no body and can't
 carry an envelope.
 
-- `samples/`: a shop (`Shop.Core` customer codes, `Shop.Admin` admin codes in a separate
-  assembly) served by `Shop.MinimalApi` and `Shop.Controllers`, net11.0 only, never packed,
-  referencing the library projects. `Shop.MinimalApi/error-codes/*.json` are build output,
-  committed; CI fails when a build changes them. Keep each app's `.http` file and `samples/README.md` in step
-  with the responses.
+- `samples/Cities.Api`: one minimal API (deleting a city user profiles use fails with the users'
+  ids), never packed, referencing the library projects and no other Hlibz package.
+  `error-codes/error-codes.json` is build output, committed; CI fails when a build changes it.
+  Keep `Cities.Api.http` and `samples/README.md` in step with the responses.
+- `tests/Hlibz.Results.AspNetCore.Tests.Admin`: a library with one more error, for catalogs of
+  several assemblies (not a test project).
 
 ## Requires
 
-* The .NET SDK `global.json` pins (11.0.100, patches roll forward; Dependabot bumps it), plus
-  the .NET 10 runtime to run both test targets. Pinned because warnings are errors and
-  `AnalysisMode=All`: a new SDK feature band brings new analyzer rules.
+* The .NET SDK `global.json` pins (11.0.100, patches roll forward; Dependabot bumps it). 3.x
+  targets net11.0 only (C# 15: unions, `closed`); .NET 10 apps stay on 2.x. Pinned because
+  warnings are errors and `AnalysisMode=All`: a new SDK feature band brings new analyzer rules.
 
 ## Commands
 
 ```bash
 dotnet build
 dotnet test
-dotnet test -f net11.0
 dotnet pack -c Release -o ./nupkg
-dotnet run --project samples/Shop.MinimalApi    # :5180, try Shop.MinimalApi.http
+dotnet run --project samples/Cities.Api    # :5180, try Cities.Api.http
 ```
 
 ## Conventions

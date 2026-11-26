@@ -16,6 +16,7 @@ internal static class Compiler
 {
     private const string Usings = """
         using System;
+        using System.Collections.Generic;
         using Hlibz.Results;
 
         """;
@@ -33,7 +34,8 @@ internal static class Compiler
     /// <param name="source">The source.</param>
     /// <param name="referenceLibrary">Whether to reference Hlibz.Results.</param>
     /// <returns>The compilation, nothing run on it yet.</returns>
-    public static CSharpCompilation Compile(string source, bool referenceLibrary = true)
+    /// <param name="assemblyName">The assembly's name.</param>
+    public static CSharpCompilation Compile(string source, bool referenceLibrary = true, string assemblyName = "Generated.Errors-1")
     {
         MetadataReference[] references = referenceLibrary
             ? AllReferences
@@ -43,8 +45,8 @@ internal static class Compiler
                     StringComparison.Ordinal))
                 .ToArray();
         return CSharpCompilation.Create(
-            "Generated.Codes-1",
-            [CSharpSyntaxTree.ParseText(Usings + source, new CSharpParseOptions(LanguageVersion.CSharp12), path: "Source.cs")],
+            assemblyName,
+            [CSharpSyntaxTree.ParseText(Usings + source, new CSharpParseOptions(LanguageVersion.Latest), path: "Source.cs")],
             references,
             new CSharpCompilationOptions(
                 OutputKind.DynamicallyLinkedLibrary,
@@ -52,7 +54,7 @@ internal static class Compiler
     }
 
     /// <summary>
-    /// Runs <see cref="ErrorCodeAnalyzer"/> on <paramref name="source"/>, failing on any
+    /// Runs <see cref="ErrorAnalyzer"/> on <paramref name="source"/>, failing on any
     /// compile error so a test can't pass on a source that doesn't compile.
     /// </summary>
     /// <param name="source">The source.</param>
@@ -62,22 +64,26 @@ internal static class Compiler
         CSharpCompilation compilation = Compile(source);
         Assert.Empty(compilation.GetDiagnostics(TestContext.Current.CancellationToken).Where(IsError));
         return await compilation
-            .WithAnalyzers([new ErrorCodeAnalyzer()])
+            .WithAnalyzers([new ErrorAnalyzer()])
             .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
     }
 
     /// <summary>
-    /// Runs <see cref="ErrorCodeManifestGenerator"/> on <paramref name="source"/>.
+    /// Runs <see cref="ErrorManifestGenerator"/> on <paramref name="source"/>.
     /// </summary>
     /// <param name="source">The source.</param>
     /// <param name="referenceLibrary">Whether to reference Hlibz.Results.</param>
+    /// <param name="assemblyName">The assembly's name.</param>
     /// <returns>The generated manifest (or <see langword="null"/>) and the compilation with it.</returns>
-    public static (string? Manifest, Compilation Output) Generate(string source, bool referenceLibrary = true)
+    public static (string? Manifest, Compilation Output) Generate(
+        string source,
+        bool referenceLibrary = true,
+        string assemblyName = "Generated.Errors-1")
     {
         GeneratorDriver driver = CSharpGeneratorDriver
-            .Create(new ErrorCodeManifestGenerator())
+            .Create(new ErrorManifestGenerator())
             .RunGeneratorsAndUpdateCompilation(
-                Compile(source, referenceLibrary),
+                Compile(source, referenceLibrary, assemblyName),
                 out Compilation output,
                 out ImmutableArray<Diagnostic> diagnostics);
         Assert.Empty(diagnostics);

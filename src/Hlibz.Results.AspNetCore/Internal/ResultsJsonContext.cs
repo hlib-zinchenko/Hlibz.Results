@@ -12,5 +12,5 @@ namespace Hlibz.Results.AspNetCore.Internal;
 /// </summary>
 [JsonSerializable(typeof(ErrorResponse))]
 [JsonSerializable(typeof(ResultEnvelope))]
-[JsonSerializable(typeof(IReadOnlyList<ErrorCode>))]
+[JsonSerializable(typeof(IReadOnlyList<ErrorCodeInfo>))]
 internal sealed partial class ResultsJsonContext : JsonSerializerContext;

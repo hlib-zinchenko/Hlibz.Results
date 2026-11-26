@@ -30,7 +30,7 @@ public static class ActionResultExtensions
         ArgumentNullException.ThrowIfNull(result);
         return new DeferredActionResult(
             context => result.IsSuccess
-                ? Success(
+                ? SuccessOf(
                     result.Value,
                     context.SuccessStatusCode,
                     context.CreatedLocation?.LocationFor(result.Value))
@@ -84,7 +84,7 @@ public static class ActionResultExtensions
         ArgumentNullException.ThrowIfNull(location);
         return new DeferredActionResult(
             context => result.IsSuccess
-                ? Success(result.Value, StatusCodes.Status201Created, location(result.Value))
+                ? SuccessOf(result.Value, StatusCodes.Status201Created, location(result.Value))
                 : Error(result, context));
     }
 
@@ -163,6 +163,15 @@ public static class ActionResultExtensions
                 context));
     }
 
+    /// <summary>
+    /// A success with <paramref name="value"/>, or with no body for a
+    /// <c>Result&lt;Unit, TError&gt;</c>, which is sent as a <see cref="Result"/> is.
+    /// </summary>
+    private static IActionResult SuccessOf<T>(T? value, int statusCode, string? location) =>
+        typeof(T) == typeof(Unit)
+            ? WithLocation(Success(statusCode), location)
+            : Success(value, statusCode, location);
+
     private static IActionResult Success(object? value, int statusCode, string? location)
     {
         IActionResult response = statusCode switch
@@ -215,7 +224,7 @@ public static class ActionResultExtensions
         location is null ? response : new LocationActionResult(response, location);
 
     private static ObjectResult Error(Result result, ResultResponseContext context) =>
-        new(ResultResponses.ToErrorResponse(result, context.Options, context.Json))
+        new(ResultResponses.ToErrorResponse(result.Error!, context.Options, context.Json))
         {
             StatusCode = ResultResponses.StatusCodeFor(result.Status, context.Options),
         };

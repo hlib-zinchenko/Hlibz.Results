@@ -30,7 +30,7 @@ public sealed class WithResultEnvelopesTests
     public async Task WithResultEnvelopes_WithFailure_SendsEnvelopeWithItsStatus()
     {
         using HttpClient client = await TestApp.StartAsync(app =>
-            app.MapGet("/", () => Result<OrderDto>.NotFound("Order 7 was not found."))
+            app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7)))
                 .WithResultEnvelopes());
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);
@@ -47,7 +47,7 @@ public sealed class WithResultEnvelopesTests
         using HttpClient client = await TestApp.StartAsync(app =>
             app.MapPost(
                     "/",
-                    () => Result<OrderDto>.Invalid(
+                    () => TestErrors.Invalid<OrderDto>(
                         new Dictionary<string, string[]> { ["CustomerName"] = ["Required."] }))
                 .WithResultEnvelopes());
 
@@ -127,7 +127,7 @@ public sealed class WithResultEnvelopesTests
     {
         IProducesResponseTypeMetadata response = Assert.Single(
             await TestApp.ResponsesAsync(app =>
-                app.MapGet("/", () => Result<OrderDto>.NotFound()).WithResultEnvelopes()));
+                app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7))).WithResultEnvelopes()));
 
         Assert.Equal(StatusCodes.Status200OK, response.StatusCode);
         Assert.Equal(typeof(ResultEnvelope<OrderDto>), response.Type);
@@ -149,7 +149,7 @@ public sealed class WithResultEnvelopesTests
     {
         IProducesResponseTypeMetadata response = Assert.Single(
             await TestApp.ResponsesAsync(
-                app => app.MapGet("/", () => Result<OrderDto>.NotFound()).WithResultEnvelopes(),
+                app => app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7))).WithResultEnvelopes(),
                 options => options.CreateEnvelope = content => new { ok = content.IsSuccess }));
 
         Assert.Equal(StatusCodes.Status200OK, response.StatusCode);

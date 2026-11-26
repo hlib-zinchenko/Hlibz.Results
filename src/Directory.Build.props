@@ -3,12 +3,11 @@
     <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
 
     <!--
-        Package validation checks that the packed assemblies expose the same API on every target
-        framework and, against the baseline, that a pack doesn't break the last major release.
+        Package validation checks the packed assemblies. 3.0 breaks 2.x on purpose (typed errors,
+        .NET 11 only), so there's no baseline until 3.0.0 ships; then set it to 3.0.0.
     -->
     <PropertyGroup>
         <EnablePackageValidation>true</EnablePackageValidation>
-        <PackageValidationBaselineVersion>2.0.0</PackageValidationBaselineVersion>
     </PropertyGroup>
 
     <ItemGroup>

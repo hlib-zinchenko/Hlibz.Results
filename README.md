@@ -11,102 +11,164 @@
 [![Hlibz.Results.FluentValidation](https://img.shields.io/nuget/v/Hlibz.Results.FluentValidation?label=Hlibz.Results.FluentValidation)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
 [![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.FluentValidation?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
 
-A small Result pattern for .NET APIs, with **error codes** and **one error body for every
-failure**: from your handlers, through minimal API endpoints or controllers, to the
-authorization gate's own 401/403 and anything your middleware writes.
+A Result pattern for .NET APIs with **typed errors**: every failure is a record carrying the data
+a client needs to act on it, an operation declares the errors it returns as a C# 15 `union`, and
+documentation lists each one with its data. One error body for every failure: from your
+handlers, through minimal API endpoints or controllers, to the authorization gate's own 401/403
+and anything your middleware writes.
 
 | Package | What it gives you |
 |---|---|
-| `Hlibz.Results` | `Result` / `Result<T>`, `ResultStatus`, `ErrorCode`, `Map`/`Bind`, `ErrorCodeCatalog`. No dependencies. |
-| `Hlibz.Results.AspNetCore` | `ToHttpResult()` (minimal APIs), `ToActionResult()` (controllers), `ErrorResponse`, the optional envelope, the auth gate's error body, `WriteErrorAsync`, `MapErrorCodes`. |
-| `Hlibz.Results.FluentValidation` | `validationResult.ToErrorResult()` / `validationResult.ToInvalidResult()`. |
+| `Hlibz.Results` | `Result`, `Result<T>`, `Result<T, TError>`, `Error` + `[Error]`, the ambient errors, `Map`/`Bind`, `ErrorCodeCatalog`, and the source generator and analyzer behind them. No dependencies. |
+| `Hlibz.Results.AspNetCore` | `ToHttpResult()` (minimal APIs), `ToActionResult()` (controllers), `ErrorResponse` with the error's `details`, each declared error documented per endpoint, the optional envelope, the auth gate's error body, `WriteErrorAsync`, `MapErrorCodes`. |
+| `Hlibz.Results.FluentValidation` | `validationResult.ToValidationFailed()`. |
 
-Targets .NET 10 and 11.
+Targets .NET 11 (C# 15). .NET 10 apps stay on 2.x.
 
 ## Why another Result library?
 
-Ardalis.Result, ErrorOr and FluentResults are all fine. This one is opinionated about the HTTP
-side, which is where most of the copy-paste between projects lives:
+Ardalis.Result, ErrorOr and FluentResults are all fine. This one is opinionated about errors as
+data and about the HTTP side, which is where most of the copy-paste between projects lives:
 
-- Every failure can carry a machine-readable **error code** (`orders_1001`) that clients branch
-  on, and the catalog lists every code your API can return (`GET api/error-codes`), failing at
-  startup when two share a code.
-- Every error, whoever produces it, has the same body:
-  `{ "message": "...", "code": "orders_1001" | null, "validation_errors": { ... } }`.
-- Your code says *what* failed (`Invalid`, `Conflict`, ...); the HTTP code is configuration, so
-  400-only and 400/422 teams both fit.
-- Validation error keys follow your JSON naming policy per path segment:
-  `Items[0].UnitPrice` → `items[0].unit_price` under snake_case.
+- **An error is a type with data.** Deleting a city that user profiles still use fails with
+  `CityInUse(CityId, UserCount, UserIds)`, and the client gets the ids in the error's `details`
+  instead of asking again.
+- **An operation declares its errors.** `Result<Unit, DeleteCityError>` where
+  `union DeleteCityError(CityNotFound, CityInUse)`: callers switch over them exhaustively, the
+  build rejects an error the set doesn't list, and each endpoint's OpenAPI responses list them.
+- **Codes clients branch on** (`cities_1002`), listed by a catalog (`GET api/error-codes`, with
+  each code's status and details schema) that a source generator builds at compile time,
+  rejecting two errors that share a code as a build error.
+- Your code says *what* failed (`Conflict`, `Invalid`, ...); the HTTP code is configuration, so
+  400-only and 400/422 teams both fit. Validation error keys follow your JSON naming policy per
+  path segment: `Items[0].UnitPrice` → `items[0].unit_price` under snake_case.
 
-## Results
+## Errors
+
+An error is a `sealed record` deriving from `Error`, with an `[Error]` attribute giving its code,
+what failed and its message, and whatever data a client needs:
 
 ```csharp
 using Hlibz.Results;
 
-public sealed record OrdersErrorCode(string Code, string Message)
-    : ErrorCode($"orders_{Code}", Message);
+[Error("cities_1001", ResultStatus.NotFound, "There's no city with this id.")]
+public sealed record CityNotFound(Guid CityId) : Error;
 
-public static class OrdersErrorCodes
+[Error("cities_1002", ResultStatus.Conflict, "The city is used by user profiles.")]
+public sealed record CityInUse(Guid CityId, int UserCount, IReadOnlyList<Guid> UserIds) : Error
 {
-    public static readonly ErrorCode OrderClosed =
-        new OrdersErrorCode("1001", "The order is closed.");
-}
-
-public async Task<Result<OrderDto>> AddLineAsync(Guid orderId, AddLine line)
-{
-    Order? order = await _orders.GetAsync(orderId);
-    if (order is null)
-    {
-        return Result<OrderDto>.NotFound();
-    }
-
-    if (order.IsClosed)
-    {
-        return Result<OrderDto>.Conflict(OrdersErrorCodes.OrderClosed);
-    }
-
-    Result added = order.AddLine(line);
-    if (added.IsFailure)
-    {
-        return Result<OrderDto>.FromFailed(added);
-    }
-
-    return Result<OrderDto>.Success(order.ToDto());
+    // Optional: word the message from the data.
+    protected override string FormatMessage(string message) =>
+        $"The city is used by {UserCount} user profile(s).";
 }
 ```
 
-| Status | Factory | HTTP (default) |
+`error.Code`, `error.Status` and `error.Message` come from the attribute; everything else is the
+error's details. Return an error where a result is expected: it converts.
+
+| `ResultStatus` | Meaning | HTTP (default) |
 |---|---|---|
-| `Success` | `Success()` / `Success(value)` | 200 ([configurable](#success-status-codes)) |
-| `Error` | `Error(message)`, `Error(errorCode)`, `Error(validationErrors)`, `validationResult.ToErrorResult()` | 400 |
-| `Invalid` | `Invalid(validationErrors)`, `validationResult.ToInvalidResult()` | 400 |
-| `NotFound` | `NotFound(message?)`, `NotFound(errorCode)` | 404 |
-| `Unauthorized` | `Unauthorized(message?)`, `Unauthorized(errorCode)` | 401 |
-| `Forbidden` | `Forbidden(message?)`, `Forbidden(errorCode)` | 403 |
-| `Conflict` | `Conflict(message?)`, `Conflict(errorCode)` | 409 |
-| `Unavailable` | `Unavailable(message?)`, `Unavailable(errorCode)` | 503 |
+| `Success` | | 200 ([configurable](#success-status-codes)) |
+| `Error` | A broken business rule or another bad request | 400 |
+| `Invalid` | The input failed validation | 400 |
+| `NotFound` | What the request refers to doesn't exist | 404 |
+| `Unauthorized` | Not authenticated | 401 |
+| `Forbidden` | Authenticated but not allowed | 403 |
+| `Conflict` | Conflicts with the current state | 409 |
+| `Unavailable` | A dependency is down; retry later | 503 |
 
-Your code says *what* failed; the HTTP layer picks the number. `Error` is a broken business rule
-or another bad request, `Invalid` a failed input validation, so an API can keep both at 400 or
-send 422 for one or both (see Options). Validation errors can ride on either: pick `Error` if
-your API doesn't tell validation apart from other bad requests, `Invalid` if it does. To keep a
-codebase to one of them, ban the other's factories with
-[BannedApiAnalyzers](https://www.nuget.org/packages/Microsoft.CodeAnalysis.BannedApiAnalyzers).
+### Ambient errors
 
-`Result<T>` is a `Result`, and `IsSuccess` tells the compiler `Value` isn't null.
-`FromFailed` passes a failure on as another type; `Map`, `MapAsync` and `Bind` chain steps.
+Four errors any operation can fail with, added by the layers around it rather than declared by
+it, so every result accepts them whatever its error set: `ValidationFailed(Errors)`
+(`validation_failed`), `Unauthorized`, `Forbidden` and `Unavailable` (`unauthorized`,
+`forbidden`, `unavailable`). They derive from `AmbientError`, a `closed` record: these are all
+of them.
+
+## Results
+
+```csharp
+public union GetCityError(CityNotFound);
+public union DeleteCityError(CityNotFound, CityInUse);
+
+public Result<City, GetCityError> Get(Guid id) =>
+    _cities.TryGetValue(id, out City? city) ? city : new CityNotFound(id);
+
+public Result<Unit, DeleteCityError> Delete(Guid id)
+{
+    Result<City, GetCityError> found = Get(id);
+    if (found.IsFailure)
+    {
+        return found.Error;          // a smaller set's error passes on into a larger one
+    }
+
+    Guid[] users = UsersOf(id);
+    if (users.Length > 0)
+    {
+        return new CityInUse(id, users.Length, [.. users.Take(50)]);
+    }
+
+    _cities.Remove(id);
+    return Unit.Value;
+}
+```
+
+| Type | Fails with | Use it for |
+|---|---|---|
+| `Result` | any `Error` | an operation that returns nothing |
+| `Result<T>` | any `Error` | a value, errors undeclared |
+| `Result<T, TError>` | an error of `TError`, or an ambient one | a value (`Unit` for none) and the errors it declares |
+
+`TError` is an **error set**: a non-generic `union` whose cases are all error types, none of
+them ambient. A caller switches over `DeclaredError` exhaustively, with no `_` arm, so adding an
+error to the set flags every switch that doesn't handle it yet:
+
+```csharp
+Result<Unit, DeleteCityError> deleted = service.Delete(id);
+string text = deleted.DeclaredError switch
+{
+    CityNotFound => "No such city.",
+    CityInUse inUse => $"Used by {inUse.UserCount} profiles.",
+    null => deleted.IsSuccess ? "Deleted." : deleted.Error.Message,   // success or ambient
+};
+```
+
+`Result<T, TError>` is a `Result<T>`, which is a `Result`, so anything taking a plain result
+takes it. `IsSuccess`/`IsFailure` tell the compiler whether `Value` or `Error` is set; `Map`,
+`MapAsync` and `Bind` chain steps, keeping the error set. A `union` compiles to a struct without
+equality members, which CA1815 flags under `AnalysisMode=All`: suppress it for error sets.
+
+Nothing is scanned at runtime: Hlibz.Results' source generator lists each assembly's error types
+and error sets as it compiles, and the analyzer reports what would otherwise fail at runtime
+(see [Build errors](#build-errors)), such as returning `CityArchived` from an operation whose set
+doesn't list it. An error passed on as a plain `Error` can't be checked at build time, and throws
+`ArgumentException` if the set doesn't list it.
 
 ## Minimal APIs
 
 ```csharp
 builder.Services.AddResultErrorResponses();
-builder.Services.AddErrorCodeCatalog(typeof(OrdersErrorCodes).Assembly);
+builder.Services.AddErrorCodeCatalog(typeof(CityNotFound).Assembly);
 
-app.MapPost("orders/{id:guid}/lines", async (Guid id, AddLine line, IOrderService orders) =>
-    (await orders.AddLineAsync(id, line)).ToHttpResult());
+app.MapDelete("api/cities/{id:guid}", (Guid id, CityService cities) =>
+    cities.Delete(id).ToHttpResult());
 
-app.MapErrorCodes(); // GET api/error-codes → [{ "code": "orders_1001", "message": "..." }]
+app.MapErrorCodes(); // GET api/error-codes → [{ "code": "cities_1002", "status": 409, ... }]
 ```
+
+A failure goes out as its status code and an `ErrorResponse`, with the error's data as
+`details` (left out of an error without data):
+
+```json
+{
+  "message": "The city is used by 2 user profile(s).",
+  "code": "cities_1002",
+  "details": { "cityId": "1111…", "userCount": 2, "userIds": ["aaaa…", "bbbb…"] }
+}
+```
+
+A `ValidationFailed` sends its messages as `validationErrors` instead, and a
+`Result<Unit, TError>` succeeds with no body, as a plain `Result` does.
 
 ### Returning results as they are
 
@@ -124,8 +186,15 @@ orders.MapDelete("{id:int}", (int id, OrderService service) => service.Delete(id
 ```
 
 Handlers that return anything else are left alone, so it's safe on a whole group, and a response
-a filter sends in place of the handler's (a validation failure, say) goes out as it is. Document
-the failures on the endpoint (`.Produces<ErrorResponse>(404)`).
+a filter sends in place of the handler's (a validation failure, say) goes out as it is.
+
+A handler returning a `Result<T, TError>` gets its errors documented too: one response per status
+code they are sent with (`404 ErrorResponse`, `409 ErrorResponse`), unless the endpoint
+documents that status itself, and every error in the endpoint's `DeclaredErrorsMetadata`, with
+the status it goes out with, for documentation that shows each error's code and details schema
+(Hlibz.OpenApi.Results does). Ambient errors aren't documented here: validation and
+authorization are documented by what adds them. Document a plain `Result<T>`'s failures on the
+endpoint (`.Produces<ErrorResponse>(404)`).
 
 ### Success status codes
 
@@ -172,24 +241,24 @@ own codes:
 
 ```csharp
 builder.Services
-    .AddErrorCodeCatalog(typeof(OrdersErrorCodes).Assembly)        // default catalog
+    .AddErrorCodeCatalog(typeof(CityNotFound).Assembly)            // default catalog
     .AddErrorCodeCatalog("admin",                                  // named catalog
-        typeof(OrdersErrorCodes).Assembly,
-        typeof(AdminErrorCodes).Assembly);
+        typeof(CityNotFound).Assembly,
+        typeof(AdminOnly).Assembly);
 
 app.MapErrorCodes();                                               // api/error-codes
 app.MapErrorCodes("api/admin/error-codes", "admin").RequireAuthorization("Admin");
 ```
 
-Each catalog rejects duplicate codes at startup; the same assembly may be in several. From a
-controller, inject `IErrorCodeCatalog` for the default one and
-`[FromKeyedServices("admin")] IErrorCodeCatalog` for a named one.
+Each catalog lists the ambient errors too, and rejects two assemblies sharing a code at startup
+(two errors sharing a code in one assembly is a build error); the same assembly may be in several
+catalogs. Each entry is the error's code, the HTTP status it goes out with, its message and the
+JSON schema of its `details`, as the app's JSON options write it. From a controller, inject
+`IErrorCodeCatalog` for the default one and `[FromKeyedServices("admin")] IErrorCodeCatalog` for
+a named one.
 
-Nothing is scanned at runtime: Hlibz.Results' source generator lists each assembly's public
-static `ErrorCode` fields and properties as it compiles, and the catalog reads that list, so it
-is trimming-safe. An assembly that references Hlibz.Results but was compiled without the
-generator makes the catalog throw; one that doesn't reference it has no codes. A code the list
-can't name, in a private or protected nested class, is warning [`HRES001`](#build-warnings).
+An assembly that references Hlibz.Results but was compiled without the generator makes the
+catalog throw; one that doesn't reference it adds no codes.
 
 ### Error code files at build time
 
@@ -228,7 +297,7 @@ in every app that returns results, whose builds shouldn't start running the app 
 - A file is only rewritten when its content changes, and the target is skipped when the app, its
   copied assemblies and the project file are unchanged. Only a project with one target framework
   writes them on build; with several, run `dotnet msbuild -t:GenerateErrorCodeFiles
-  -p:TargetFramework=net10.0`.
+  -p:TargetFramework=net11.0`.
 - To skip them in one build, CI's say: `dotnet build -p:ErrorCodesGenerateFilesOnBuild=false`.
 - With clients in other repositories, write the files into the API's own repository and commit
   them: a changed code shows in review, CI can fail on stale ones with `git diff --exit-code`
@@ -327,7 +396,7 @@ builder.Services.AddResultErrorResponses(options =>
 
     options.ValidationKeyNaming = ValidationKeyNaming.AsIs; // default: JsonNamingPolicy
     options.FormatValidationKey = key => key.ToUpperInvariant(); // or your own
-    options.Messages.NotFound = "Nothing here.";              // default messages per status
+    options.SuccessMessage = "Success.";                      // a successful envelope's message
     options.UseEnvelope = false;
     options.CreateEnvelope = null;                            // your own envelope shape
     options.EnvelopeAlwaysOk = false;                         // envelopes always HTTP 200
@@ -350,9 +419,9 @@ handler you registered.
 
 ```csharp
 context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-await context.Response.WriteErrorAsync("Too many requests.", code: null, ct);
+await context.Response.WriteErrorAsync("Too many requests.", "rate_limited", ct);
 
-await context.Response.WriteErrorAsync(Result.Conflict("Someone else changed it."), ct);
+await context.Response.WriteErrorAsync(Result.Failure(new Unavailable()), ct);
 ```
 
 ## FluentValidation
@@ -363,8 +432,7 @@ using Hlibz.Results.FluentValidation;
 ValidationResult validation = await validator.ValidateAsync(request);
 if (!validation.IsValid)
 {
-    return validation.ToInvalidResult(); // status Invalid; ToInvalidResult<T>() for Result<T>
-    // or: return validation.ToErrorResult(); // status Error, same validation_errors
+    return validation.ToValidationFailed(); // converts to any result, whatever its error set
 }
 ```
 
@@ -384,10 +452,12 @@ if (!validation.IsValid)
 - **Native AOT and reflection-free JSON.** The packages are marked AOT-compatible. The error
   body, the envelopes and the error code list are serialized with the app's JSON options, and
   `AddResultErrorResponses` adds compile-time metadata for `ErrorResponse`, `ResultEnvelope` and
-  `IReadOnlyList<ErrorCode>` to them (after your own resolvers, with your naming policy). In an
+  `IReadOnlyList<ErrorCodeInfo>` to them (after your own resolvers, with your naming policy). In an
   app with reflection-based JSON off (Native AOT, the `webapiaot` template), add to your
-  `JsonSerializerContext` each `Result` or `Result<T>` a minimal API handler returns, each
-  `ResultEnvelope<T>` and value type you return, and your own `CreateEnvelope` shape. The
+  `JsonSerializerContext` each `Result`, `Result<T>` or `Result<T, TError>` a minimal API handler
+  returns, each `ResultEnvelope<T>` and value type you return, each error type with data (one
+  missing goes out without `details`, and without a schema in the catalog, rather than failing
+  the response), and your own `CreateEnvelope` shape. The
   handler's return type is needed even under `WithResultResponses()`/`WithResultEnvelopes()`,
   which turn the result into an `IResult` before anything is written: ASP.NET Core's generated
   endpoint code asks for its metadata when it builds the endpoint, and without it every request
@@ -410,28 +480,28 @@ if (!validation.IsValid)
   scheme that answers with a redirect instead (cookies: 302 to the login or access denied page)
   keeps its redirect, with no body.
 
-## Build warnings
+## Build errors
 
-Hlibz.Results' analyzer reports this as you build:
+Hlibz.Results' analyzer reports these as you build, each an error since it would otherwise fail
+at runtime:
 
 | Id | Meaning |
 |---|---|
-| `HRES001` | A public static `ErrorCode` sits in a private or protected nested class, which the generated list of the assembly's codes can't name, so no catalog lists it. Make the class (and any class it is nested in) internal or public. |
+| `HRES001` | An error type is generic, or nested in a private or protected type: the generated manifest can't name it. |
+| `HRES002` | A non-abstract error type has no `[Error]` attribute of its own. |
+| `HRES003` | Two error types in the assembly share a code. |
+| `HRES004` | A `Result<T, TError>`'s `TError` isn't an error set: a non-generic `union` of error types, none of them ambient. |
+| `HRES005` | An error is returned (converted, or passed to `Failure`) where the result's error set doesn't list it. |
+| `HRES006` | An `[Error]` has a blank code or the `Success` status. |
 
 ## Samples
 
-[`samples/`](samples/README.md) has a small shop as a minimal API app and a controllers app,
-with customer and admin error codes in separate assemblies, and a `.http` file for every
-failure.
+[`samples/`](samples/README.md) has a cities API: typed errors with data, error sets, an ambient
+validation failure, the documented responses and the error code catalog, with a `.http` file for
+every case.
 
 ## Related packages
 
-- [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints):
-  minimal API endpoints as classes. Set its FluentValidation `OnFailure` to
-  `(result, _) => result.ToErrorResult().ToHttpResult()` and a failed validation gets the same
-  error body.
-- [Hlibz.Paging](https://www.nuget.org/packages/Hlibz.Paging): paging and sorting; a bad sort
-  string becomes `Result.Invalid(new Dictionary<string, string[]> { ["sort"] = [error] })`.
 - [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore):
   OpenAPI transformers for Microsoft.AspNetCore.OpenApi.
 
@@ -440,7 +510,10 @@ failure.
 Every package in this repository is released under one version, from one `vX.Y.Z` tag, so
 matching versions always go together. Dependencies are declared as minimums (FluentValidation
 11.0.0 and later), so a new FluentValidation or ASP.NET Core release needs no new Hlibz.Results
-release: reference the newer version in your app and NuGet uses it. 2.0.0 drops .NET 8 and 9.
+release: reference the newer version in your app and NuGet uses it. 2.0.0 dropped .NET 8 and 9;
+3.0.0 targets .NET 11 only and replaces error codes with typed errors (`ErrorCode`,
+`Result.NotFound(...)` and the other status factories, `FromFailed`, `ErrorMessage`,
+`ValidationErrors` and `ResultMessages` are gone), so .NET 10 apps stay on 2.x.
 
 Release notes: [GitHub Releases](https://github.com/hlib-zinchenko/Hlibz.Results/releases).
 

@@ -176,6 +176,8 @@ public static class HttpResultExtensions
     {
         IResult response = statusCode switch
         {
+            // Result<Unit, TError>: an operation that returns nothing, sent as a Result is.
+            _ when typeof(T) == typeof(Unit) => Success(statusCode),
             StatusCodes.Status200OK => TypedResults.Ok(value),
             StatusCodes.Status204NoContent => TypedResults.NoContent(),
             _ => TypedResults.Json(value, ResultResponses.TypeInfo<T>(json), statusCode: statusCode),
@@ -225,7 +227,7 @@ public static class HttpResultExtensions
 
     private static JsonHttpResult<ErrorResponse> Error(Result result, ResultResponseContext context) =>
         TypedResults.Json(
-            ResultResponses.ToErrorResponse(result, context.Options, context.Json),
+            ResultResponses.ToErrorResponse(result.Error!, context.Options, context.Json),
             ResultResponses.TypeInfo<ErrorResponse>(context.Json),
             statusCode: ResultResponses.StatusCodeFor(result.Status, context.Options));
 }

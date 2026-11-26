@@ -1,3 +1,5 @@
+using Hlibz.Results.AspNetCore.Internal;
+
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 
@@ -48,6 +50,13 @@ public static class ErrorCodeEndpointRouteBuilderExtensions
                   $"No error code catalog named '{catalogName}' is registered; call "
                   + $"AddErrorCodeCatalog(\"{catalogName}\", ...).");
 
-        return endpoints.MapGet(pattern, () => TypedResults.Ok(catalog.All));
+        // Built on the first request, from the app's settings as the request sees them.
+        IReadOnlyList<ErrorCodeInfo>? published = null;
+        return endpoints.MapGet(
+            pattern,
+            (HttpContext context) => TypedResults.Ok(published ??= ErrorCodeInfos.For(
+                catalog,
+                ResultResponses.GetOptions(context.RequestServices),
+                ResultResponses.GetHttpJsonOptions(context.RequestServices))));
     }
 }

@@ -2,7 +2,7 @@
 
   <PropertyGroup Label="NuGet metadata">
     <PackageId>Hlibz.Results.FluentValidation</PackageId>
-    <Description>Turns a failed FluentValidation ValidationResult into a Hlibz.Results failure carrying its validation errors, grouped by property path, with the status your API wants: validationResult.ToErrorResult() or validationResult.ToInvalidResult(). Works with FluentValidation 11.0.0 and later.</Description>
+    <Description>Turns a failed FluentValidation ValidationResult into a Hlibz.Results ValidationFailed error carrying its validation errors, grouped by property path: return validationResult.ToValidationFailed(); converts to any result. Works with FluentValidation 11.0.0 and later.</Description>
     <PackageTags>result;result-pattern;fluentvalidation;validation;error-handling</PackageTags>
   </PropertyGroup>
 

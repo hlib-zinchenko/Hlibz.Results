@@ -2,7 +2,7 @@
 
   <PropertyGroup Label="NuGet metadata">
     <PackageId>Hlibz.Results</PackageId>
-    <Description>A small Result / Result&lt;T&gt; type for returning expected failures instead of throwing: a status (Success, Error, Invalid, NotFound, Unauthorized, Forbidden, Conflict, Unavailable), a message, a machine-readable error code and validation errors, plus Map/Bind and an error code catalog that collects every ErrorCode declared in your assemblies and rejects duplicates at startup. No dependencies. Pair it with Hlibz.Results.AspNetCore to turn results into HTTP responses with one error body.</Description>
+    <Description>Result, Result&lt;T&gt; and Result&lt;T, TError&gt; for returning expected failures instead of throwing, with typed errors: each failure is a record carrying its own data, described by an [Error] attribute (code, status, message), and an operation declares the errors it returns as a C# 15 union, so callers switch over them exhaustively and documentation lists each one with its data. A source generator lists every error and error set at build time and reports duplicates and undeclared errors as build errors. No dependencies. Pair it with Hlibz.Results.AspNetCore to turn results into HTTP responses.</Description>
     <PackageTags>result;result-pattern;error-handling;error-codes;railway;functional;ddd</PackageTags>
   </PropertyGroup>
 
@@ -11,12 +11,14 @@
   </PropertyGroup>
 
   <!--
-      The error code source generator ships inside this package (analyzers/dotnet/cs), plus a
+      The error manifest source generator ships inside this package (analyzers/dotnet/cs), plus a
       buildTransitive target that adds it to a project referencing the package indirectly if the
-      SDK hasn't. Built first, never a dependency of its own.
+      SDK hasn't. Never a dependency of its own; it also runs on this assembly, which lists the
+      ambient errors the same way.
   -->
   <ItemGroup>
     <ProjectReference Include="..\Hlibz.Results.Generators\Hlibz.Results.Generators.csproj"
+                      OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       PrivateAssets="all" />
     <None Include="..\Hlibz.Results.Generators\bin\$(Configuration)\netstandard2.0\Hlibz.Results.Generators.dll"

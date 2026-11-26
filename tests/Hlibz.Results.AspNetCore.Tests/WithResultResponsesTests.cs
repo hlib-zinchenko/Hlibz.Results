@@ -32,7 +32,7 @@ public sealed class WithResultResponsesTests
     public async Task WithResultResponses_WithFailure_SendsErrorResponseWithItsStatus()
     {
         using HttpClient client = await TestApp.StartAsync(app =>
-            app.MapGet("/", () => Result<OrderDto>.NotFound("Order 7 was not found."))
+            app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7)))
                 .WithResultResponses());
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);
@@ -49,7 +49,7 @@ public sealed class WithResultResponsesTests
         using HttpClient client = await TestApp.StartAsync(app =>
             app.MapPost(
                     "/",
-                    () => Result<OrderDto>.Invalid(
+                    () => TestErrors.Invalid<OrderDto>(
                         new Dictionary<string, string[]> { ["CustomerName"] = ["Required."] }))
                 .WithResultResponses());
 
@@ -70,7 +70,7 @@ public sealed class WithResultResponsesTests
         {
             app.MapGet("/count", () => Result<int>.Success(42)).WithResultResponses();
             app.MapGet("/id", () => Task.FromResult(Result<Guid>.Success(id))).WithResultResponses();
-            app.MapGet("/missing", () => Result<int>.NotFound("No count.")).WithResultResponses();
+            app.MapGet("/missing", () => Result<int>.Failure(new NoCount())).WithResultResponses();
         });
 
         using HttpResponseMessage count = await client.GetAsync("/count", Ct);
@@ -133,7 +133,7 @@ public sealed class WithResultResponsesTests
             app.MapPost("/", async () =>
                 {
                     await Task.Yield();
-                    return Result.Conflict("Already sent.");
+                    return Result.Failure(new AlreadySent());
                 })
                 .WithResultResponses());
 
@@ -150,7 +150,7 @@ public sealed class WithResultResponsesTests
         using HttpClient client = await TestApp.StartAsync(app =>
         {
             RouteGroupBuilder group = app.MapGroup("/orders").WithResultResponses();
-            group.MapGet("/result", () => Result<OrderDto>.NotFound());
+            group.MapGet("/result", () => Result<OrderDto>.Failure(new OrderNotFound(7)));
             group.MapGet("/plain", () => new OrderDto(8, "Bob"));
         });
 
@@ -179,7 +179,7 @@ public sealed class WithResultResponsesTests
     {
         IProducesResponseTypeMetadata response = Assert.Single(
             await TestApp.ResponsesAsync(app =>
-                app.MapGet("/", () => Result<OrderDto>.NotFound()).WithResultResponses()));
+                app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7))).WithResultResponses()));
 
         Assert.Equal(StatusCodes.Status200OK, response.StatusCode);
         Assert.Equal(typeof(OrderDto), response.Type);
@@ -237,4 +237,57 @@ public sealed class WithResultResponsesTests
         Assert.Equal(StatusCodes.Status200OK, posted.StatusCode);
         Assert.Equal(typeof(void), posted.Type);
     }
+
+    [Fact]
+    public async Task WithResultResponses_WithErrorSet_DocumentsEachStatusAndEveryDeclaredError()
+    {
+        Endpoint endpoint = await TestApp.EndpointAsync(app => app
+            .MapGet("/", () => Result<OrderDto, GetOrderError>.Failure(new OrderClosed()))
+            .WithResultResponses());
+
+        IProducesResponseTypeMetadata[] responses =
+        [
+            .. endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>(),
+        ];
+        DeclaredErrorsMetadata declared = endpoint.Metadata.GetRequiredMetadata<DeclaredErrorsMetadata>();
+
+        Assert.Equal(
+            [(200, typeof(OrderDto)), (404, typeof(ErrorResponse)), (400, typeof(ErrorResponse)), (409, typeof(ErrorResponse))],
+            responses.Select(response => (response.StatusCode, response.Type!)));
+        Assert.Equal(
+            [("test_1003", 404), ("test_1001", 400), ("test_1006", 409)],
+            declared.Errors.Select(error => (error.Error.Code, error.StatusCode)));
+    }
+
+    [Fact]
+    public async Task WithResultResponses_WithErrorSetAndOwnResponse_KeepsTheEndpointsOwn()
+    {
+        Endpoint endpoint = await TestApp.EndpointAsync(app => app
+            .MapGet("/", () => Result<OrderDto, GetOrderError>.Failure(new OrderClosed()))
+            .WithResultResponses()
+            .Produces<ProblemDetailsLike>(StatusCodes.Status404NotFound));
+
+        IProducesResponseTypeMetadata notFound = Assert.Single(
+            endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>(),
+            response => response.StatusCode == StatusCodes.Status404NotFound);
+
+        Assert.Equal(typeof(ProblemDetailsLike), notFound.Type);
+    }
+
+    [Fact]
+    public async Task WithResultEnvelopes_WithErrorCarryingData_SendsItAsDetails()
+    {
+        using HttpClient client = await TestApp.StartAsync(app => app
+            .MapGet("/", () => Result<OrderDto, GetOrderError>.Failure(new Taken([5])))
+            .WithResultEnvelopes());
+
+        using HttpResponseMessage response = await client.GetAsync("/", Ct);
+        JsonElement body = await response.ReadJsonAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("test_1006", body.GetProperty("code").GetString());
+        Assert.Equal(5, body.GetProperty("details").GetProperty("taken_by")[0].GetInt32());
+    }
+
+    private sealed record ProblemDetailsLike(string Title);
 }

@@ -1,0 +1,84 @@
+[
+  {
+    "code": "cities_1001",
+    "status": 404,
+    "message": "There's no city with this id.",
+    "details": {
+      "type": "object",
+      "properties": {
+        "cityId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "cityId"
+      ]
+    }
+  },
+  {
+    "code": "cities_1002",
+    "status": 409,
+    "message": "The city is used by user profiles.",
+    "details": {
+      "type": "object",
+      "properties": {
+        "cityId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "userCount": {
+          "type": "integer"
+        },
+        "userIds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "required": [
+        "cityId",
+        "userCount",
+        "userIds"
+      ]
+    }
+  },
+  {
+    "code": "cities_1003",
+    "status": 409,
+    "message": "A city with this name already exists.",
+    "details": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ]
+    }
+  },
+  {
+    "code": "forbidden",
+    "status": 403,
+    "message": "Access to the resource is forbidden."
+  },
+  {
+    "code": "unauthorized",
+    "status": 401,
+    "message": "Authentication is required."
+  },
+  {
+    "code": "unavailable",
+    "status": 503,
+    "message": "The service is temporarily unavailable. Please retry later."
+  },
+  {
+    "code": "validation_failed",
+    "status": 400,
+    "message": "Validation failed. Please check the validation errors."
+  }
+]

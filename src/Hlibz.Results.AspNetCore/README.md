@@ -15,21 +15,23 @@ dotnet add package Hlibz.Results.AspNetCore
 
 ```csharp
 builder.Services.AddResultErrorResponses();
-builder.Services.AddErrorCodeCatalog(typeof(OrdersErrorCodes).Assembly);
+builder.Services.AddErrorCodeCatalog(typeof(CityNotFound).Assembly);
 
-app.MapPost("orders/{id:guid}/lines", async (Guid id, AddLine line, IOrderService orders) =>
-    (await orders.AddLineAsync(id, line)).ToHttpResult());
+RouteGroupBuilder cities = app.MapGroup("api/cities").WithResultResponses();
+cities.MapDelete("{id:guid}", (Guid id, CityService service) => service.Delete(id));
 
-app.MapErrorCodes(); // GET api/error-codes → [{ "code": "orders_1001", "message": "..." }]
+app.MapErrorCodes(); // GET api/error-codes → [{ "code": "cities_1002", "status": 409, ... }]
 ```
 
-Or let handlers return a `Result` as is: `app.MapGroup("/api/orders").WithResultResponses()`.
-In a controller, `ToActionResult()` sends the same status codes and bodies.
+`WithResultResponses()` lets handlers return a result as is, and documents each error a
+`Result<T, TError>` declares: a response per status code, plus `DeclaredErrorsMetadata` for
+documentation that shows each error's details. Without it, call `ToHttpResult()`; in a
+controller, `ToActionResult()` sends the same status codes and bodies.
 
 A success is `200` unless you configure it per app and HTTP method
 (`options.SuccessStatusCodes[HttpMethods.Delete] = 204`), per group or endpoint
 (`.WithSuccessStatusCode(201)`, `[SuccessStatusCode(201)]`), or send `201` with a `Location`
-(`.WithCreatedLocation<OrderDto>(o => $"/api/orders/{o.Id}")`, `ToCreatedHttpResult(...)`). See
+(`.WithCreatedLocation<City>(c => $"/api/cities/{c.Id}")`, `ToCreatedHttpResult(...)`). See
 [Success status codes](https://github.com/hlib-zinchenko/Hlibz.Results#success-status-codes).
 
 | Status | HTTP (default) |
@@ -43,10 +45,15 @@ A success is `200` unless you configure it per app and HTTP method
 | `Conflict` | 409 |
 | `Unavailable` | 503 |
 
-Every failure has this body (`validation_errors` only when there are any):
+Every failure has this body, the error's own data as `details` (`validationErrors` instead for a
+`ValidationFailed`):
 
 ```json
-{ "message": "The order is closed.", "code": "orders_1001" }
+{
+  "message": "The city is used by 2 user profile(s).",
+  "code": "cities_1002",
+  "details": { "cityId": "1111…", "userCount": 2, "userIds": ["aaaa…", "bbbb…"] }
+}
 ```
 
 Your code says *what* failed; the HTTP code is configuration (422 for `Invalid`, say).
@@ -55,22 +62,23 @@ Validation error keys follow your JSON naming policy per path segment: `Items[0]
 
 For clients that want one shape for every body, success included, there is an opt-in envelope
 (`ToEnvelopeHttpResult()`, `WithResultEnvelopes()`, or your own shape), which can also be sent
-as HTTP 200 always. The error code catalog publishes every code your app can return, per app if
-you have several, and with `<ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles>` in the
+as HTTP 200 always. The error code catalog publishes every code your app can return, with its
+status and the schema of its details, per app if you have several, and with `<ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles>` in the
 app's project every build writes the catalogs to JSON files too, for clients that shouldn't wait
 for a running API (set up like ASP.NET Core's build-time OpenAPI documents).
 
 AOT-compatible: `AddResultErrorResponses` adds compile-time JSON metadata for `ErrorResponse`
 and `ResultEnvelope`. In a Native AOT app (reflection-based JSON off), add to your
-`JsonSerializerContext` each `Result` or `Result<T>` a minimal API handler returns (ASP.NET Core
-asks for its metadata when it builds the endpoint, even under `WithResultResponses()`), and the
-`ResultEnvelope<T>`s and values you return.
+`JsonSerializerContext` each result type a minimal API handler returns (ASP.NET Core asks for
+its metadata when it builds the endpoint, even under `WithResultResponses()`), the
+`ResultEnvelope<T>`s and values you return, and each error type with data (one missing goes out
+without `details`).
 
 ## Related packages
 
 - [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types.
 - [Hlibz.Results.FluentValidation](https://www.nuget.org/packages/Hlibz.Results.FluentValidation):
-  a failed validation as `Result.Invalid`.
+  a failed validation as a `ValidationFailed` error.
 - [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints):
   minimal API endpoints as classes; their handlers return results the same way.
 

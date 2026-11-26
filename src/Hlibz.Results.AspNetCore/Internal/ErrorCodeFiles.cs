@@ -30,7 +30,7 @@ internal static class ErrorCodeFiles
     /// The type <c>MapErrorCodes</c> serializes. A field, not <c>GetTypeInfo&lt;T&gt;()</c>,
     /// which is .NET 11 only.
     /// </summary>
-    private static readonly Type CatalogType = typeof(IReadOnlyList<ErrorCode>);
+    private static readonly Type CatalogType = typeof(IReadOnlyList<ErrorCodeInfo>);
 
     /// <summary>
     /// Writes a file per catalog into <paramref name="directory"/>, leaving a file whose content
@@ -81,7 +81,11 @@ internal static class ErrorCodeFiles
         foreach ((string fileName, IErrorCodeCatalog catalog) in catalogs)
         {
             string path = Path.GetFullPath(Path.Combine(directory, fileName));
-            byte[] content = [.. JsonSerializer.SerializeToUtf8Bytes(catalog.All, typeInfo), (byte)'\n'];
+            IReadOnlyList<ErrorCodeInfo> published = ErrorCodeInfos.For(
+                catalog,
+                ResultResponses.GetOptions(services),
+                json.SerializerOptions);
+            byte[] content = [.. JsonSerializer.SerializeToUtf8Bytes(published, typeInfo), (byte)'\n'];
 
             // An unchanged file keeps its timestamp, so watchers and incremental builds of the
             // clients reading it don't fire on every build of the API.

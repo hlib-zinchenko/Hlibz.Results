@@ -27,34 +27,19 @@ public sealed class ValidationResultExtensionsTests
     }
 
     [Fact]
-    public void ToErrorResult_WithFailures_IsErrorCarryingValidationErrors()
+    public void ToValidationFailed_WithFailures_IsAValidationFailedAnyResultAccepts()
     {
-        Result result = Failed.ToErrorResult();
-        Result<int> typed = Failed.ToErrorResult<int>();
-
-        Assert.Equal(ResultStatus.Error, result.Status);
-        Assert.Equal(ResultStatus.Error, typed.Status);
-        Assert.Equal(Result.DefaultValidationMessage, result.ErrorMessage);
-        Assert.Equal(2, result.ValidationErrors!.Count);
-        Assert.Equal(2, typed.ValidationErrors!.Count);
-    }
-
-    [Fact]
-    public void ToInvalidResult_WithFailures_IsInvalidCarryingValidationErrors()
-    {
-        Result result = Failed.ToInvalidResult();
-        Result<int> typed = Failed.ToInvalidResult<int>();
+        ValidationFailed error = Failed.ToValidationFailed();
+        Result<int> result = error;
 
         Assert.Equal(ResultStatus.Invalid, result.Status);
-        Assert.Equal(ResultStatus.Invalid, typed.Status);
-        Assert.Equal(Result.DefaultValidationMessage, result.ErrorMessage);
-        Assert.Equal(2, result.ValidationErrors!.Count);
-        Assert.Equal(2, typed.ValidationErrors!.Count);
+        Assert.Equal("validation_failed", result.Error?.Code);
+        Assert.Equal(2, error.Errors.Count);
     }
 
     [Fact]
-    public void ToInvalidResult_WithValidResult_Throws()
+    public void ToValidationFailed_WithValidResult_Throws()
     {
-        Assert.Throws<InvalidOperationException>(() => new ValidationResult().ToInvalidResult());
+        Assert.Throws<InvalidOperationException>(() => new ValidationResult().ToValidationFailed());
     }
 }

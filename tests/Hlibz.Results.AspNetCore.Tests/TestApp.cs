@@ -55,7 +55,7 @@ internal static class TestApp
             .AddPolicy(AdminPolicy, policy => policy.RequireRole("admin"));
 
         builder.Services.AddResultErrorResponses(configure);
-        builder.Services.AddErrorCodeCatalog(typeof(TestErrorCodes).Assembly);
+        builder.Services.AddErrorCodeCatalog(typeof(TestErrors).Assembly);
         services?.Invoke(builder.Services);
 
         WebApplication app = builder.Build();
@@ -74,6 +74,12 @@ internal static class TestApp
     public static async Task<IProducesResponseTypeMetadata[]> ResponsesAsync(
         Action<WebApplication> map,
         Action<ResultHttpOptions>? configure = null,
+        string pattern = "/") =>
+        [.. (await EndpointAsync(map, configure, pattern)).Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>()];
+
+    public static async Task<Endpoint> EndpointAsync(
+        Action<WebApplication> map,
+        Action<ResultHttpOptions>? configure = null,
         string pattern = "/")
     {
         IEndpointRouteBuilder? routes = null;
@@ -85,10 +91,9 @@ internal static class TestApp
             },
             configure);
 
-        Endpoint endpoint = Assert.Single(
+        return Assert.Single(
             routes!.DataSources.SelectMany(source => source.Endpoints),
             item => item is RouteEndpoint route && route.RoutePattern.RawText == pattern);
-        return [.. endpoint.Metadata.GetOrderedMetadata<IProducesResponseTypeMetadata>()];
     }
 
     public static async Task<JsonElement> ReadJsonAsync(this HttpResponseMessage response)

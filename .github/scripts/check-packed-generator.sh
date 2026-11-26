@@ -48,7 +48,7 @@ mkdir "$work/Shared" "$work/Api"
 cat > "$work/Shared/Shared.csproj" <<EOF
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -58,22 +58,23 @@ cat > "$work/Shared/Shared.csproj" <<EOF
 </Project>
 EOF
 
-cat > "$work/Shared/OrdersErrorCodes.cs" <<'EOF'
+cat > "$work/Shared/OrdersErrors.cs" <<'EOF'
 using Hlibz.Results;
 
 namespace Shared;
 
-public static class OrdersErrorCodes
-{
-    public static readonly ErrorCode Closed = new("orders_1001", "The order is closed.");
-}
+[Error("orders_1001", ResultStatus.Conflict, "The order is closed.")]
+public sealed record OrderClosed(Guid OrderId) : Error;
+
+#pragma warning disable CA1815
+public union CloseOrderError(OrderClosed);
 EOF
 
 cat > "$work/Api/Api.csproj" <<'EOF'
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -88,17 +89,16 @@ using System.Reflection;
 using Hlibz.Results;
 using Shared;
 
-Assembly[] assemblies = [typeof(ApiErrorCodes).Assembly, typeof(OrdersErrorCodes).Assembly];
+Assembly[] assemblies = [typeof(ApiDown).Assembly, typeof(OrderClosed).Assembly];
 ErrorCodeCatalog catalog = new(assemblies);
 catalog.Validate();
-int[] listed = [.. assemblies.Select(assembly => assembly.GetCustomAttribute<ErrorCodeManifestAttribute>()?.ErrorCodes.Count ?? -1)];
-Console.WriteLine($"Error codes listed per assembly: {string.Join(", ", listed)}; catalog: {string.Join(", ", catalog.All.Select(code => code.Code))}");
-return listed.All(count => count == 1) && catalog.All.Count == 2 ? 0 : 1;
+int[] listed = [.. assemblies.Select(assembly => assembly.GetCustomAttribute<ErrorManifestAttribute>()?.Errors.Count ?? -1)];
+Result<int, CloseOrderError> closed = new OrderClosed(Guid.Empty);
+Console.WriteLine($"Errors listed per assembly: {string.Join(", ", listed)}; catalog: {string.Join(", ", catalog.All.Select(error => error.Code))}; declared: {closed.DeclaredError?.Value}");
+return listed.All(count => count == 1) && catalog.All.Count == 6 && closed.DeclaredError is not null ? 0 : 1;
 
-internal static class ApiErrorCodes
-{
-    public static readonly ErrorCode Down = new("api_1001", "The API is down.");
-}
+[Error("api_1001", ResultStatus.Unavailable, "The API is down.")]
+internal sealed record ApiDown : Error;
 EOF
 
 echo "Checking Hlibz.Results(.FluentValidation) $version from $artifacts"

@@ -36,6 +36,13 @@ public class ResultEnvelope
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, string[]>? ValidationErrors { get; init; }
+
+    /// <summary>
+    /// Gets a failure's own data (see <see cref="ErrorResponse.Details"/>); left out when it has
+    /// none.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public object? Details { get; init; }
 }
 
 /// <summary>

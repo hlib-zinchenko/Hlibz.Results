@@ -1,7 +1,8 @@
 namespace Hlibz.Results;
 
 /// <summary>
-/// The outcome of an operation. Every status but <see cref="Success"/> is a failure.
+/// The outcome of an operation. Every status but <see cref="Success"/> is a failure, and is what an <see cref="Error"/>'s
+/// <see cref="ErrorAttribute"/> says failed.
 /// </summary>
 public enum ResultStatus
 {
@@ -17,8 +18,7 @@ public enum ResultStatus
     Error,
 
     /// <summary>
-    /// The request's input failed validation; the failure carries
-    /// <see cref="Result.ValidationErrors"/> (HTTP 400 by default, 422 for APIs that tell
+    /// The request's input failed validation (<see cref="ValidationFailed"/>, with the messages) (HTTP 400 by default, 422 for APIs that tell
     /// validation apart).
     /// </summary>
     Invalid,

@@ -1,9 +1,6 @@
 <Solution>
   <Folder Name="/samples/">
-    <Project Path="samples/Shop.Admin/Shop.Admin.csproj" />
-    <Project Path="samples/Shop.Controllers/Shop.Controllers.csproj" />
-    <Project Path="samples/Shop.Core/Shop.Core.csproj" />
-    <Project Path="samples/Shop.MinimalApi/Shop.MinimalApi.csproj" />
+    <Project Path="samples/Cities.Api/Cities.Api.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Hlibz.Results.AspNetCore.ErrorCodeFiles/Hlibz.Results.AspNetCore.ErrorCodeFiles.csproj" />
@@ -13,6 +10,7 @@
     <Project Path="src/Hlibz.Results/Hlibz.Results.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Hlibz.Results.AspNetCore.Tests.Admin/Hlibz.Results.AspNetCore.Tests.Admin.csproj" />
     <Project Path="tests/Hlibz.Results.AspNetCore.Tests/Hlibz.Results.AspNetCore.Tests.csproj" />
     <Project Path="tests/Hlibz.Results.FluentValidation.Tests/Hlibz.Results.FluentValidation.Tests.csproj" />
     <Project Path="tests/Hlibz.Results.Generators.Tests/Hlibz.Results.Generators.Tests.csproj" />

@@ -5,8 +5,9 @@
 [![NuGet](https://img.shields.io/nuget/v/Hlibz.Results.svg)](https://www.nuget.org/packages/Hlibz.Results)
 [![CI](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml)
 
-A small `Result` / `Result<T>` for returning expected failures instead of throwing: a status,
-a message, a machine-readable error code and validation errors. No dependencies.
+`Result`, `Result<T>` and `Result<T, TError>` for returning expected failures instead of
+throwing, with **typed errors**: each failure is a record carrying the data a client needs, and
+an operation declares the errors it returns as a C# 15 `union`. No dependencies; .NET 11.
 
 ```bash
 dotnet add package Hlibz.Results
@@ -15,65 +16,52 @@ dotnet add package Hlibz.Results
 ```csharp
 using Hlibz.Results;
 
-public sealed record OrdersErrorCode(string Code, string Message)
-    : ErrorCode($"orders_{Code}", Message);
+[Error("cities_1001", ResultStatus.NotFound, "There's no city with this id.")]
+public sealed record CityNotFound(Guid CityId) : Error;
 
-public static class OrdersErrorCodes
+[Error("cities_1002", ResultStatus.Conflict, "The city is used by user profiles.")]
+public sealed record CityInUse(Guid CityId, int UserCount, IReadOnlyList<Guid> UserIds) : Error;
+
+public union DeleteCityError(CityNotFound, CityInUse);
+
+public Result<Unit, DeleteCityError> Delete(Guid id)
 {
-    public static readonly ErrorCode OrderClosed =
-        new OrdersErrorCode("1001", "The order is closed.");
+    if (!_cities.ContainsKey(id))
+    {
+        return new CityNotFound(id);
+    }
+
+    Guid[] users = UsersOf(id);
+    return users.Length > 0 ? new CityInUse(id, users.Length, users) : Unit.Value;
 }
 
-public async Task<Result<OrderDto>> AddLineAsync(Guid orderId, AddLine line)
+string text = service.Delete(id).DeclaredError switch   // exhaustive: no _ arm
 {
-    Order? order = await _orders.GetAsync(orderId);
-    if (order is null)
-    {
-        return Result<OrderDto>.NotFound();
-    }
-
-    if (order.IsClosed)
-    {
-        return Result<OrderDto>.Conflict(OrdersErrorCodes.OrderClosed);
-    }
-
-    Result added = order.AddLine(line);
-    if (added.IsFailure)
-    {
-        return Result<OrderDto>.FromFailed(added);
-    }
-
-    return Result<OrderDto>.Success(order.ToDto());
-}
+    CityNotFound => "No such city.",
+    CityInUse inUse => $"Used by {inUse.UserCount} profiles.",
+    null => "Deleted, or an ambient error.",
+};
 ```
 
-| Status | Factory |
-|---|---|
-| `Success` | `Success()` / `Success(value)` |
-| `Error` | `Error(message)`, `Error(errorCode)`, `Error(validationErrors)` |
-| `Invalid` | `Invalid(validationErrors)` |
-| `NotFound` | `NotFound(message?)`, `NotFound(errorCode)` |
-| `Unauthorized` | `Unauthorized(message?)`, `Unauthorized(errorCode)` |
-| `Forbidden` | `Forbidden(message?)`, `Forbidden(errorCode)` |
-| `Conflict` | `Conflict(message?)`, `Conflict(errorCode)` |
-| `Unavailable` | `Unavailable(message?)`, `Unavailable(errorCode)` |
+- `[Error]` gives each error type its code, what failed (`ResultStatus`) and its message.
+- `Result<T, TError>` fails with an error of its set or an ambient one (`ValidationFailed`,
+  `Unauthorized`, `Forbidden`, `Unavailable`), which the layers around an operation add.
+  `Result<T>` and `Result` fail with any error.
+- `Map`, `MapAsync` and `Bind` chain steps, keeping the error set.
+- `ErrorCodeCatalog` lists every error type of the assemblies you give it, plus the ambient
+  ones, sorted by code.
 
-`Error` is a broken business rule or another bad request, `Invalid` a failed input validation;
-validation errors can ride on either, so an API that doesn't tell them apart can use `Error`
-only. `Result<T>` is a `Result`, and `IsSuccess` tells the compiler `Value` isn't null.
-`FromFailed` passes a failure on as another type; `Map`, `MapAsync` and `Bind` chain steps.
-
-`ErrorCodeCatalog` collects every public static `ErrorCode` declared in the assemblies you give
-it, sorted, and throws when two share a code. The package's source generator lists each
-assembly's codes as it compiles, so nothing is scanned at runtime; the package is AOT-compatible.
+A source generator lists each assembly's error types and error sets as it compiles, so nothing
+is scanned at runtime (the package is AOT-compatible), and an analyzer reports as build errors
+what would fail at runtime: an error without `[Error]`, two sharing a code, an error returned
+where the set doesn't list it.
 
 ## Related packages
 
 - [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore): results
-  to HTTP responses with one error body, for minimal APIs and controllers.
+  to HTTP responses with one error body and the error's data as details, each declared error
+  documented per endpoint.
 - [Hlibz.Results.FluentValidation](https://www.nuget.org/packages/Hlibz.Results.FluentValidation):
-  a failed `ValidationResult` to a failure.
-- [Hlibz.Paging](https://www.nuget.org/packages/Hlibz.Paging): paging and sorting; a bad sort
-  string becomes `Result.Invalid`.
+  a failed `ValidationResult` as a `ValidationFailed` error.
 
 Full documentation and samples: [github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).

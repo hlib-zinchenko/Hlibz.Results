@@ -63,9 +63,10 @@ public sealed class ResultHttpOptions
     public Func<string, string>? FormatValidationKey { get; set; }
 
     /// <summary>
-    /// Gets the messages used when a failure carries none of its own.
+    /// Gets or sets the message of a successful envelope. Failures carry their own
+    /// (<see cref="Error.Message"/>).
     /// </summary>
-    public ResultMessages Messages { get; } = new();
+    public string SuccessMessage { get; set; } = "Success.";
 
     /// <summary>
     /// Gets or sets a factory for an API's own envelope shape, used by the <c>ToEnvelope…</c>

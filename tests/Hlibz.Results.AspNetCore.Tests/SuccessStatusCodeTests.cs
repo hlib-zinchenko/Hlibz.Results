@@ -71,7 +71,7 @@ public sealed class SuccessStatusCodeTests
     public async Task WithResultResponses_WithFailureUnderMethodDefault_SendsFailureStatus()
     {
         using HttpClient client = await TestApp.StartAsync(
-            app => app.MapDelete("/", () => Result.NotFound()).WithResultResponses(),
+            app => app.MapDelete("/", () => Result.Failure(new OrderNotFound(7))).WithResultResponses(),
             options => options.SuccessStatusCodes[HttpMethods.Delete] = StatusCodes.Status204NoContent);
 
         using HttpResponseMessage response = await client.DeleteAsync("/", Ct);
@@ -240,7 +240,7 @@ public sealed class SuccessStatusCodeTests
         using HttpClient client = await TestApp.StartAsync(app =>
             app.MapPost(
                 "/",
-                () => Result<OrderDto>.Conflict("Taken.").ToCreatedHttpResult(order => $"/orders/{order.OrderId}")));
+                () => Result<OrderDto>.Failure(new Taken([3])).ToCreatedHttpResult(order => $"/orders/{order.OrderId}")));
 
         using HttpResponseMessage response = await client.PostAsync("/", null, Ct);
 

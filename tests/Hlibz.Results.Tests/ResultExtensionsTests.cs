@@ -13,11 +13,20 @@ public sealed class ResultExtensionsTests
     [Fact]
     public void Map_WithFailure_PassesFailureOnWithoutCallingMap()
     {
-        Result<string> result = Result<int>.NotFound("Gone.").Map<int, string>(
+        Result<string> result = Result<int>.Failure(new OrderNotFound()).Map<int, string>(
             _ => throw new InvalidOperationException("Must not run."));
 
-        Assert.Equal(ResultStatus.NotFound, result.Status);
-        Assert.Equal("Gone.", result.ErrorMessage);
+        Assert.IsType<OrderNotFound>(result.Error);
+    }
+
+    [Fact]
+    public void Map_WithErrorSet_KeepsTheSetAndTheDeclaredError()
+    {
+        Result<int, PayOrderError> paid = new OrderClosed(Guid.Empty);
+
+        Result<string, PayOrderError> result = paid.Map(value => $"#{value}");
+
+        Assert.IsType<OrderClosed>(result.DeclaredError?.Value);
     }
 
     [Fact]
@@ -32,17 +41,25 @@ public sealed class ResultExtensionsTests
     public void Bind_WithSuccess_RunsNextStep()
     {
         Result<int> result = Result<int>.Success(4)
-            .Bind(value => value > 3 ? Result<int>.Conflict("Too big.") : Result<int>.Success(value));
+            .Bind(value => value > 3 ? new OrderTooLarge(value, 3) : Result<int>.Success(value));
 
-        Assert.Equal(ResultStatus.Conflict, result.Status);
+        Assert.IsType<OrderTooLarge>(result.Error);
+    }
+
+    [Fact]
+    public void Bind_WithErrorSet_RunsNextStepWithTheSameSet()
+    {
+        Result<int, PayOrderError> result = Result<int, PayOrderError>.Success(4)
+            .Bind(value => value > 3 ? new OrderNotFound() : Result<int, PayOrderError>.Success(value));
+
+        Assert.IsType<OrderNotFound>(result.DeclaredError?.Value);
     }
 
     [Fact]
     public void Bind_WithNonGenericFailure_PassesFailureOn()
     {
-        Result<int> result = Result.Forbidden("No.").Bind(() => Result<int>.Success(1));
+        Result<int> result = Result.Failure(new Forbidden()).Bind(() => Result<int>.Success(1));
 
-        Assert.Equal(ResultStatus.Forbidden, result.Status);
-        Assert.Equal("No.", result.ErrorMessage);
+        Assert.IsType<Forbidden>(result.Error);
     }
 }

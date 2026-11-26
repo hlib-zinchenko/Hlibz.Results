@@ -23,7 +23,7 @@ public sealed class AuthorizationAndErrorWriterTests
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.Equal("Authentication is required.", body.GetProperty("message").GetString());
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("code").ValueKind);
+        Assert.Equal("unauthorized", body.GetProperty("code").GetString());
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class AuthorizationAndErrorWriterTests
     {
         using HttpClient client = await TestApp.StartAsync(app => app.Use(
             (HttpContext context, RequestDelegate _) => context.Response.WriteErrorAsync(
-                Result.Conflict(TestErrorCodes.Duplicate),
+                Result.Failure(new Duplicate()),
                 context.RequestAborted)));
 
         using HttpResponseMessage response = await client.GetAsync("/anything", Ct);
@@ -141,10 +141,10 @@ public sealed class AuthorizationAndErrorWriterTests
         JsonElement body = await response.ReadJsonAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(
-            ["test_1001", "test_1002"],
-            body.EnumerateArray().Select(item => item.GetProperty("code").GetString()));
-        Assert.Equal("The order is closed.", body[0].GetProperty("message").GetString());
+        string?[] codes = [.. body.EnumerateArray().Select(item => item.GetProperty("code").GetString())];
+        Assert.Equal([.. codes.Order(StringComparer.Ordinal)], codes);
+        Assert.Contains("test_1001", codes);
+        Assert.Contains("validation_failed", codes);
     }
 
     private static Task<HttpClient> StartWithProtectedEndpointAsync(

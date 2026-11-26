@@ -24,11 +24,8 @@
         <PackageVersion Include="xunit.v3" Version="4.0.3" />
     </ItemGroup>
 
-    <!-- Test-only: an in-memory server per ASP.NET Core major, matching each target framework. -->
-    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="10.0.14" />
-    </ItemGroup>
-    <ItemGroup Condition="'$(TargetFramework)' == 'net11.0'">
+    <!-- Test-only. -->
+    <ItemGroup>
         <PackageVersion Include="Microsoft.AspNetCore.TestHost" Version="11.0.0" />
     </ItemGroup>
 </Project>

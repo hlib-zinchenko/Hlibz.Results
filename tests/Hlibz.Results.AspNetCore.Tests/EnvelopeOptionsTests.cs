@@ -34,7 +34,7 @@ public sealed class EnvelopeOptionsTests
         using HttpClient client = await StartAsync(
             app => app.MapGet(
                 "/",
-                () => Result<OrderDto>.Conflict(TestErrorCodes.Duplicate).ToEnvelopeHttpResult()),
+                () => Result<OrderDto>.Failure(new Duplicate()).ToEnvelopeHttpResult()),
             Custom);
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);
@@ -88,7 +88,7 @@ public sealed class EnvelopeOptionsTests
     public async Task EnvelopeAlwaysOk_WithFailure_Sends200WithRealStatusInEnvelope()
     {
         using HttpClient client = await StartAsync(
-            app => app.MapGet("/", () => Result<OrderDto>.NotFound().ToEnvelopeHttpResult()),
+            app => app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7)).ToEnvelopeHttpResult()),
             options => options.EnvelopeAlwaysOk = true);
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);
@@ -133,7 +133,7 @@ public sealed class EnvelopeOptionsTests
     public async Task EnvelopeAlwaysOk_WithPlainErrorResponse_KeepsStatusCode()
     {
         using HttpClient client = await StartAsync(
-            app => app.MapGet("/", () => Result<OrderDto>.NotFound().ToHttpResult()),
+            app => app.MapGet("/", () => Result<OrderDto>.Failure(new OrderNotFound(7)).ToHttpResult()),
             options => options.EnvelopeAlwaysOk = true);
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);

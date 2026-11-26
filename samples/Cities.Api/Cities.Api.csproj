@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    Every build writes the error code catalog to error-codes/error-codes.json, for clients to use
+    without running the API (obj/ when ErrorCodesDirectory isn't set). Committed, and CI fails
+    when it's stale.
+  -->
+  <PropertyGroup>
+    <ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles>
+    <ErrorCodesDirectory>error-codes</ErrorCodesDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- In your own app: PackageReference Include="Hlibz.Results.AspNetCore". -->
+    <ProjectReference Include="..\..\src\Hlibz.Results.AspNetCore\Hlibz.Results.AspNetCore.csproj" />
+  </ItemGroup>
+
+</Project>

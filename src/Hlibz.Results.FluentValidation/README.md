@@ -6,8 +6,9 @@
 [![CI](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml/badge.svg)](https://github.com/hlib-zinchenko/Hlibz.Results/actions/workflows/ci.yml)
 
 Turns a failed FluentValidation `ValidationResult` into a
-[Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) failure carrying its validation
-errors, grouped by property path as FluentValidation reports it (`Items[0].Quantity`).
+[Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results) `ValidationFailed` error carrying
+its validation errors, grouped by property path as FluentValidation reports it
+(`Items[0].Quantity`).
 
 ```bash
 dotnet add package Hlibz.Results.FluentValidation
@@ -19,25 +20,13 @@ using Hlibz.Results.FluentValidation;
 ValidationResult validation = await validator.ValidateAsync(request);
 if (!validation.IsValid)
 {
-    return validation.ToInvalidResult<OrderDto>(); // status Invalid
-    // or: return validation.ToErrorResult<OrderDto>(); // status Error, same validation errors
+    return validation.ToValidationFailed(); // converts to any result, whatever its error set
 }
 ```
 
-| Method | Status |
-|---|---|
-| `ToErrorResult()` / `ToErrorResult<T>()` | `Error`: for APIs that treat validation like any other bad request |
-| `ToInvalidResult()` / `ToInvalidResult<T>()` | `Invalid`: for APIs that tell them apart (e.g. 400 vs 422) |
-| `ToErrors()` | the raw `IReadOnlyDictionary<string, string[]>` |
-
-All of them throw when the validation passed. They are plain extension methods, so they work
-with any C# version, and you can keep a codebase to one status by banning the other with
-[BannedApiAnalyzers](https://www.nuget.org/packages/Microsoft.CodeAnalysis.BannedApiAnalyzers):
-
-```text
-M:Hlibz.Results.FluentValidation.ValidationResultExtensions.ToInvalidResult(FluentValidation.Results.ValidationResult)
-M:Hlibz.Results.FluentValidation.ValidationResultExtensions.ToInvalidResult``1(FluentValidation.Results.ValidationResult)
-```
+`ValidationFailed` is an ambient error (status `Invalid`, code `validation_failed`): every
+`Result<T, TError>` accepts it. `ToErrors()` gives the raw
+`IReadOnlyDictionary<string, string[]>`. Both throw when the validation passed.
 
 Works with FluentValidation 11.0.0 and later: reference the version you want in your app and
 NuGet uses it.

@@ -10,7 +10,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!--
+        The Roslyn of the .NET 11.0.100 SDK, not the generator's 4.8 minimum: the tests compile
+        C# 15 sources (union declarations) in memory, which 4.8 can't parse.
+    -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" VersionOverride="5.12.0" />
   </ItemGroup>
 
   <ItemGroup>

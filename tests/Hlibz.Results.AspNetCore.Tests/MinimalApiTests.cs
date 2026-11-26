@@ -9,13 +9,13 @@ public sealed class MinimalApiTests
 {
     public static TheoryData<string, HttpStatusCode, string> Failures => new()
     {
-        { "not-found", HttpStatusCode.NotFound, "Resource was not found." },
+        { "not-found", HttpStatusCode.NotFound, "Order 7 was not found." },
         { "unauthorized", HttpStatusCode.Unauthorized, "Authentication is required." },
         { "forbidden", HttpStatusCode.Forbidden, "Access to the resource is forbidden." },
         {
             "conflict",
             HttpStatusCode.Conflict,
-            "The request conflicts with the current state of the resource."
+            "Already exists."
         },
         {
             "unavailable",
@@ -54,18 +54,18 @@ public sealed class MinimalApiTests
 
     [Theory]
     [MemberData(nameof(Failures))]
-    public async Task ToHttpResult_WithFailureWithoutMessage_SendsStatusAndDefaultMessage(
+    public async Task ToHttpResult_WithFailure_SendsStatusAndTheErrorsMessage(
         string route,
         HttpStatusCode expectedStatus,
         string expectedMessage)
     {
         using HttpClient client = await TestApp.StartAsync(app =>
         {
-            app.MapGet("/not-found", () => Result<OrderDto>.NotFound().ToHttpResult());
-            app.MapGet("/unauthorized", () => Result.Unauthorized().ToHttpResult());
-            app.MapGet("/forbidden", () => Result.Forbidden().ToHttpResult());
-            app.MapGet("/conflict", () => Result.Conflict().ToHttpResult());
-            app.MapGet("/unavailable", () => Result.Unavailable().ToHttpResult());
+            app.MapGet("/not-found", () => Result<OrderDto>.Failure(new OrderNotFound(7)).ToHttpResult());
+            app.MapGet("/unauthorized", () => Result.Failure(new Unauthorized()).ToHttpResult());
+            app.MapGet("/forbidden", () => Result.Failure(new Forbidden()).ToHttpResult());
+            app.MapGet("/conflict", () => Result.Failure(new Duplicate()).ToHttpResult());
+            app.MapGet("/unavailable", () => Result.Failure(new Unavailable()).ToHttpResult());
         });
 
         using HttpResponseMessage response = await client.GetAsync($"/{route}", Ct);
@@ -73,22 +73,50 @@ public sealed class MinimalApiTests
 
         Assert.Equal(expectedStatus, response.StatusCode);
         Assert.Equal(expectedMessage, body.GetProperty("message").GetString());
-        Assert.Equal(JsonValueKind.Null, body.GetProperty("code").ValueKind);
+        Assert.Equal(JsonValueKind.String, body.GetProperty("code").ValueKind);
         Assert.False(body.TryGetProperty("validation_errors", out _));
     }
 
     [Fact]
-    public async Task ToHttpResult_WithErrorCode_SendsCodeAndItsMessage()
+    public async Task ToHttpResult_WithError_SendsCodeAndItsMessageWithoutDetails()
     {
         using HttpClient client = await TestApp.StartAsync(
-            app => app.MapGet("/", () => Result.Forbidden(TestErrorCodes.OrderClosed).ToHttpResult()));
+            app => app.MapGet("/", () => Result.Failure(new OrderClosed()).ToHttpResult()));
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);
         JsonElement body = await response.ReadJsonAsync();
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("test_1001", body.GetProperty("code").GetString());
         Assert.Equal("The order is closed.", body.GetProperty("message").GetString());
+        Assert.False(body.TryGetProperty("details", out _));
+    }
+
+    [Fact]
+    public async Task ToHttpResult_WithErrorCarryingData_SendsItAsDetails()
+    {
+        using HttpClient client = await TestApp.StartAsync(
+            app => app.MapGet("/", () => Result<OrderDto>.Failure(new Taken([3, 4])).ToHttpResult()));
+
+        using HttpResponseMessage response = await client.GetAsync("/", Ct);
+        JsonElement body = await response.ReadJsonAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal(
+            """{"message":"Taken.","code":"test_1006","details":{"taken_by":[3,4]}}""",
+            body.GetRawText());
+    }
+
+    [Fact]
+    public async Task ToHttpResult_WithUnitSuccess_SendsNoBody()
+    {
+        using HttpClient client = await TestApp.StartAsync(
+            app => app.MapPost("/", () => Result<Unit, GetOrderError>.Success(Unit.Value).ToHttpResult()));
+
+        using HttpResponseMessage response = await client.PostAsync("/", content: null, Ct);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Empty(await response.Content.ReadAsStringAsync(Ct));
     }
 
     [Fact]
@@ -124,7 +152,7 @@ public sealed class MinimalApiTests
             app =>
             {
                 app.MapGet("/invalid", Invalid);
-                app.MapGet("/error", () => Result.Error(TestErrorCodes.OrderClosed).ToHttpResult());
+                app.MapGet("/error", () => Result.Failure(new OrderClosed()).ToHttpResult());
             },
             options => options.StatusCodes[ResultStatus.Invalid] =
                 Microsoft.AspNetCore.Http.StatusCodes.Status422UnprocessableEntity);
@@ -143,7 +171,7 @@ public sealed class MinimalApiTests
         using HttpClient client = await TestApp.StartAsync(
             app => app.MapGet(
                 "/",
-                () => Result.Error(TestErrorCodes.OrderClosed).ToEnvelopeHttpResult()),
+                () => Result.Failure(new OrderClosed()).ToEnvelopeHttpResult()),
             options => options.StatusCodes[ResultStatus.Error] =
                 Microsoft.AspNetCore.Http.StatusCodes.Status422UnprocessableEntity);
 
@@ -157,24 +185,10 @@ public sealed class MinimalApiTests
     public async Task ToHttpResult_WithUnmappedStatus_Throws()
     {
         using HttpClient client = await TestApp.StartAsync(
-            app => app.MapGet("/", () => Result.Conflict().ToHttpResult()),
+            app => app.MapGet("/", () => Result.Failure(new Duplicate()).ToHttpResult()),
             options => options.StatusCodes.Remove(ResultStatus.Conflict));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => client.GetAsync("/", Ct));
-    }
-
-    [Fact]
-    public async Task ToHttpResult_WithCustomMessages_UsesThem()
-    {
-        using HttpClient client = await TestApp.StartAsync(
-            app => app.MapGet("/", () => Result.NotFound().ToHttpResult()),
-            options => options.Messages.NotFound = "Nothing here.");
-
-        using HttpResponseMessage response = await client.GetAsync("/", Ct);
-
-        Assert.Equal(
-            "Nothing here.",
-            (await response.ReadJsonAsync()).GetProperty("message").GetString());
     }
 
     [Fact]
@@ -201,7 +215,7 @@ public sealed class MinimalApiTests
         using HttpClient client = await TestApp.StartAsync(
             app => app.MapGet(
                 "/",
-                () => Result<OrderDto>.Conflict(TestErrorCodes.Duplicate).ToEnvelopeHttpResult()));
+                () => Result<OrderDto>.Failure(new Duplicate()).ToEnvelopeHttpResult()));
 
         using HttpResponseMessage response = await client.GetAsync("/", Ct);
         JsonElement body = await response.ReadJsonAsync();
@@ -214,7 +228,7 @@ public sealed class MinimalApiTests
     }
 
     private static Microsoft.AspNetCore.Http.IResult Invalid() =>
-        Result<OrderDto>.Invalid(new Dictionary<string, string[]>
+        TestErrors.Invalid<OrderDto>(new Dictionary<string, string[]>
         {
             ["Lines[1].UnitPrice"] = ["Too low."],
             ["CustomerName"] = ["Required."],

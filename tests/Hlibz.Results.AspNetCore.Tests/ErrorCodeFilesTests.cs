@@ -31,7 +31,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
                 app.MapErrorCodes("api/admin/error-codes", "admin");
             },
             services: collection => collection
-                .AddErrorCodeCatalog("admin", typeof(TestErrorCodes).Assembly)
+                .AddErrorCodeCatalog("admin", typeof(TestErrors).Assembly)
                 .ConfigureHttpJsonOptions(json =>
                     json.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseUpper));
 
@@ -53,7 +53,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
     [Fact]
     public void Write_WithUnchangedCodes_LeavesFileUntouched()
     {
-        IServiceProvider services = Services(collection => collection.AddErrorCodeCatalog(typeof(TestErrorCodes).Assembly));
+        IServiceProvider services = Services(collection => collection.AddErrorCodeCatalog(typeof(TestErrors).Assembly));
         string file = Assert.Single(ErrorCodeFiles.Write(services, _directory));
         DateTime past = new(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         File.SetLastWriteTimeUtc(file, past);
@@ -66,7 +66,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
     [Fact]
     public void Write_WithChangedCodes_RewritesFile()
     {
-        IServiceProvider services = Services(collection => collection.AddErrorCodeCatalog(typeof(TestErrorCodes).Assembly));
+        IServiceProvider services = Services(collection => collection.AddErrorCodeCatalog(typeof(TestErrors).Assembly));
         Directory.CreateDirectory(_directory);
         string file = Path.Combine(_directory, ErrorCodeFiles.DefaultFileName);
         File.WriteAllText(file, "[]");
@@ -88,7 +88,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
     [Fact]
     public void Write_WithCatalogNameInvalidInFileName_Throws()
     {
-        IServiceProvider services = Services(collection => collection.AddErrorCodeCatalog("admin/v2", typeof(TestErrorCodes).Assembly));
+        IServiceProvider services = Services(collection => collection.AddErrorCodeCatalog("admin/v2", typeof(TestErrors).Assembly));
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(
             () => ErrorCodeFiles.Write(services, _directory));
@@ -167,7 +167,7 @@ public sealed class ErrorCodeFilesTests : IDisposable
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(
             ["--hostBuilder:reloadConfigOnChange=false", .. args]);
-        builder.Services.AddErrorCodeCatalog(typeof(TestErrorCodes).Assembly);
+        builder.Services.AddErrorCodeCatalog(typeof(TestErrors).Assembly);
         _ = builder.Build();
         throw new InvalidOperationException("Ran past Build().");
     }

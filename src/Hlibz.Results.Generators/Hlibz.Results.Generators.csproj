@@ -1,17 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-      The source generator behind ErrorCodeCatalog: lists every public static ErrorCode field and
-      property of the assembly it runs on as an ErrorCodeManifestAttribute, which the catalog
-      reads instead of scanning types, and warns about one the generated code can't reach.
+      The source generator behind ErrorDescriptor, ErrorSetDescriptor and ErrorCodeCatalog: lists
+      the error types and error sets (unions of error types) of the assembly it runs on as an
+      ErrorManifestAttribute, which they read instead of scanning types, and the analyzer that
+      reports what would fail at runtime (HRES001-HRES006).
       Not a package of its own: Hlibz.Results ships it under analyzers/dotnet/cs.
-      netstandard2.0 and Roslyn 4.8, a low minimum, so every SDK that builds net10.0 loads it.
+      netstandard2.0 and Roslyn 4.8, a low minimum: unions need no newer API, since a union
+      declaration is a TypeDeclarationSyntax and compiles to a struct implementing IUnion.
   -->
   <PropertyGroup>
     <TargetFrameworks></TargetFrameworks>
     <TargetFramework>netstandard2.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsRoslynComponent>true</IsRoslynComponent>
+    <!-- netstandard2.0 would default to C# 7.3. -->
+    <LangVersion>14</LangVersion>
     <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
   </PropertyGroup>
 

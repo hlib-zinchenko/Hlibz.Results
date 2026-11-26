@@ -64,16 +64,14 @@ using Hlibz.Results.AspNetCore;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 // Before Build.
 builder.Services
-    .AddErrorCodeCatalog(typeof(ApiErrorCodes).Assembly)
-    .AddErrorCodeCatalog("admin", typeof(ApiErrorCodes).Assembly);
+    .AddErrorCodeCatalog(typeof(ApiDown).Assembly)
+    .AddErrorCodeCatalog("admin", typeof(ApiDown).Assembly);
 WebApplication app = builder.Build();
 app.MapErrorCodes();
 throw new InvalidOperationException("The app ran past Build() at build time.");
 
-public static class ApiErrorCodes
-{
-    public static readonly ErrorCode Down = new("api_1001", "The API is down.");
-}
+[Error("api_1001", ResultStatus.Unavailable, "The API is down.")]
+public sealed record ApiDown : Error;
 CS
   if [ -n "${4:-}" ]; then
     STATEMENT="$4" perl -0pi -e 's|// Before Build\.|$ENV{STATEMENT}|' "$1/Program.cs"
@@ -99,7 +97,7 @@ expect_none() {
 
 echo "Checking build-time error code files of Hlibz.Results.AspNetCore $version from $artifacts"
 
-for framework in net10.0 net11.0; do
+for framework in net11.0; do
   make_app "$work/On-$framework" "$framework" \
     "<ErrorCodesGenerateFiles>true</ErrorCodesGenerateFiles><ErrorCodesDirectory>../client/\$(TargetFramework)</ErrorCodesDirectory>"
   dotnet build "$work/On-$framework/Api.csproj"

@@ -48,7 +48,7 @@ public static class ResultServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers the default <see cref="IErrorCodeCatalog"/>: every <see cref="ErrorCode"/>
+    /// Registers the default <see cref="IErrorCodeCatalog"/>: every <see cref="Error"/> type
     /// declared in <paramref name="assemblies"/>, scanned now so duplicate codes fail at startup.
     /// Resolve it as a plain <see cref="IErrorCodeCatalog"/>, or publish it with
     /// <see cref="ErrorCodeEndpointRouteBuilderExtensions.MapErrorCodes"/>.

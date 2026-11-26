@@ -24,12 +24,13 @@ public sealed class EnvelopeContent
     public ResultStatus? ResultStatus { get; init; }
 
     /// <summary>
-    /// Gets the outcome's message: the failure's own, or the default for its status.
+    /// Gets the outcome's message: the failure's own, or
+    /// <see cref="ResultHttpOptions.SuccessMessage"/>.
     /// </summary>
     public required string Message { get; init; }
 
     /// <summary>
-    /// Gets the failure's error code, or <see langword="null"/>.
+    /// Gets the failure's error code, or <see langword="null"/> for a success.
     /// </summary>
     public string? Code { get; init; }
 
@@ -37,6 +38,18 @@ public sealed class EnvelopeContent
     /// Gets the validation errors, keys already cased, or <see langword="null"/>.
     /// </summary>
     public IReadOnlyDictionary<string, string[]>? ValidationErrors { get; init; }
+
+    /// <summary>
+    /// Gets a failure's own data, the error record when it carries any (see
+    /// <see cref="ErrorResponse.Details"/>), or <see langword="null"/>.
+    /// </summary>
+    public object? Details { get; init; }
+
+    /// <summary>
+    /// Gets the failure, or <see langword="null"/> for a success or an error written without a
+    /// result (the authorization gate, <c>WriteErrorAsync</c>).
+    /// </summary>
+    public Error? Error { get; init; }
 
     /// <summary>
     /// Gets the value of a successful <see cref="Result{T}"/>; <see langword="null"/> otherwise.

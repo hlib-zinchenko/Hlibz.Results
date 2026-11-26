@@ -49,8 +49,8 @@ public sealed class JsonContextTests
         using HttpClient client = await TestApp.StartAsync(
             app =>
             {
-                app.MapGet("/error", () => Result.NotFound("Order 7 was not found.").ToHttpResult());
-                app.MapGet("/envelope", () => Result.Conflict("Already sent.").ToEnvelopeHttpResult());
+                app.MapGet("/error", () => Result.Failure(new OrderNotFound(7)).ToHttpResult());
+                app.MapGet("/envelope", () => Result.Failure(new AlreadySent()).ToEnvelopeHttpResult());
                 app.MapGet("/written", (HttpContext context) =>
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -67,7 +67,11 @@ public sealed class JsonContextTests
         using HttpResponseMessage written = await client.GetAsync("/written", Ct);
 
         Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
-        Assert.Equal("Order 7 was not found.", (await error.ReadJsonAsync()).GetProperty("message").GetString());
+        JsonElement errorBody = await error.ReadJsonAsync();
+        Assert.Equal("Order 7 was not found.", errorBody.GetProperty("message").GetString());
+
+        // OrderNotFound isn't in the context: its details are left out rather than failing.
+        Assert.False(errorBody.TryGetProperty("details", out _));
         Assert.Equal(HttpStatusCode.Conflict, envelope.StatusCode);
         Assert.False((await envelope.ReadJsonAsync()).GetProperty("is_success").GetBoolean());
         Assert.Equal(HttpStatusCode.Forbidden, written.StatusCode);

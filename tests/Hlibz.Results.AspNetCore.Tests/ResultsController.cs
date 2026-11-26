@@ -15,17 +15,17 @@ public sealed class ResultsController : ControllerBase
     public ActionResult Done() => Result.Success().ToActionResult();
 
     [HttpGet("missing")]
-    public ActionResult<OrderDto> Missing() => Result<OrderDto>.NotFound().ToActionResult();
+    public ActionResult<OrderDto> Missing() => Result<OrderDto>.Failure(new OrderNotFound(7)).ToActionResult();
 
     [HttpGet("invalid")]
     public ActionResult<OrderDto> Invalid() =>
-        Result<OrderDto>.Invalid(
+        TestErrors.Invalid<OrderDto>(
                 new Dictionary<string, string[]> { ["Lines[1].UnitPrice"] = ["Too low."] })
             .ToActionResult();
 
     [HttpGet("invalid-422")]
     public ActionResult Invalid422() =>
-        Result.Invalid(new Dictionary<string, string[]> { ["Name"] = ["Required."] })
+        TestErrors.Invalid(new Dictionary<string, string[]> { ["Name"] = ["Required."] })
             .ToActionResult();
 
     [HttpGet("envelope")]
@@ -34,7 +34,7 @@ public sealed class ResultsController : ControllerBase
 
     [HttpGet("envelope-conflict")]
     public ActionResult<ResultEnvelope> EnvelopeConflict() =>
-        Result.Conflict(TestErrorCodes.Duplicate).ToEnvelopeActionResult();
+        Result.Failure(new Duplicate()).ToEnvelopeActionResult();
 
     [HttpPost("accepted")]
     [SuccessStatusCode(StatusCodes.Status202Accepted)]

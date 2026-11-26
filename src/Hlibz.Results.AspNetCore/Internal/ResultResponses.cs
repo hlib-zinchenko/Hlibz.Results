@@ -125,29 +125,48 @@ internal static class ResultResponses
         }
     }
 
-    public static string DefaultMessageFor(int statusCode, ResultMessages messages) =>
-        statusCode switch
-        {
-            StatusCodes.Status401Unauthorized => messages.Unauthorized,
-            StatusCodes.Status403Forbidden => messages.Forbidden,
-            StatusCodes.Status404NotFound => messages.NotFound,
-            StatusCodes.Status409Conflict => messages.Conflict,
-            StatusCodes.Status422UnprocessableEntity => messages.Invalid,
-            StatusCodes.Status503ServiceUnavailable => messages.Unavailable,
-            < 400 => messages.Success,
-            _ => messages.BadRequest,
-        };
-
     public static ErrorResponse ToErrorResponse(
-        Result result,
+        Error error,
         ResultHttpOptions options,
         JsonSerializerOptions serializerOptions) =>
         new()
         {
-            Message = result.ErrorMessage ?? options.Messages.For(result.Status),
-            Code = result.ErrorCode,
-            ValidationErrors = FormatKeys(result.ValidationErrors, options, serializerOptions),
+            Message = error.Message,
+            Code = error.Code,
+            ValidationErrors = ValidationErrorsOf(error, options, serializerOptions),
+            Details = DetailsOf(error, serializerOptions),
         };
+
+    /// <summary>
+    /// What goes out as an error's details: the error itself, when it carries data of its own
+    /// (a <see cref="ValidationFailed"/>'s goes out as the validation errors instead) and
+    /// <paramref name="json"/> can write its type. An error response must not fail, so an error
+    /// type missing from a source-generated-only setup (Native AOT) goes out without details.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="json">The JSON options the response is written with.</param>
+    /// <returns>The details, or <see langword="null"/>.</returns>
+    public static Error? DetailsOf(Error error, JsonSerializerOptions json) =>
+        error is not ValidationFailed
+        && error.Descriptor.HasDetails
+        && json.TryGetTypeInfo(error.GetType(), out _)
+            ? error
+            : null;
+
+    /// <summary>
+    /// A <see cref="ValidationFailed"/>'s messages, keyed as <paramref name="options"/> say.
+    /// </summary>
+    /// <param name="error">The error.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="serializerOptions">The JSON options, for their naming policy.</param>
+    /// <returns>The messages, or <see langword="null"/> for any other error.</returns>
+    public static IReadOnlyDictionary<string, string[]>? ValidationErrorsOf(
+        Error error,
+        ResultHttpOptions options,
+        JsonSerializerOptions serializerOptions) =>
+        error is ValidationFailed validation
+            ? FormatKeys(validation.Errors, options, serializerOptions)
+            : null;
 
     public static object ToEnvelope(
         Result result,
@@ -170,6 +189,11 @@ internal static class ResultResponses
         ResultHttpOptions options,
         JsonSerializerOptions serializerOptions)
     {
+        if (typeof(T) == typeof(Unit))
+        {
+            return ToEnvelope((Result)result, statusCode, options, serializerOptions);
+        }
+
         EnvelopeContent content = ToContent(
             result,
             result.Value,
@@ -184,6 +208,7 @@ internal static class ResultResponses
                    Message = content.Message,
                    Code = content.Code,
                    ValidationErrors = content.ValidationErrors,
+                   Details = content.Details,
                    Data = result.Value,
                };
     }
@@ -197,6 +222,7 @@ internal static class ResultResponses
             Message = error.Message,
             Code = error.Code,
             ValidationErrors = error.ValidationErrors,
+            Details = error.Details,
         };
         return Create(content, options) ?? Builtin(content);
     }
@@ -295,9 +321,13 @@ internal static class ResultResponses
             IsSuccess = result.IsSuccess,
             StatusCode = statusCode,
             ResultStatus = result.Status,
-            Message = result.ErrorMessage ?? options.Messages.For(result.Status),
-            Code = result.ErrorCode,
-            ValidationErrors = FormatKeys(result.ValidationErrors, options, serializerOptions),
+            Message = result.Error?.Message ?? options.SuccessMessage,
+            Code = result.Error?.Code,
+            ValidationErrors = result.Error is { } error
+                ? ValidationErrorsOf(error, options, serializerOptions)
+                : null,
+            Details = result.Error is { } failure ? DetailsOf(failure, serializerOptions) : null,
+            Error = result.Error,
             Data = data,
         };
 
@@ -323,5 +353,6 @@ internal static class ResultResponses
             Message = content.Message,
             Code = content.Code,
             ValidationErrors = content.ValidationErrors,
+            Details = content.Details,
         };
 }

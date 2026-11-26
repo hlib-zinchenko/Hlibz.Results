@@ -1,12 +1,12 @@
 namespace Hlibz.Results;
 
 /// <summary>
-/// Every error code an application can return, e.g. to publish them to API clients.
+/// Every error an application can return, e.g. to publish their codes to API clients.
 /// </summary>
 public interface IErrorCodeCatalog
 {
     /// <summary>
-    /// Gets every error code, ordered by <see cref="ErrorCode.Code"/>.
+    /// Gets every error, ordered by <see cref="ErrorDescriptor.Code"/>.
     /// </summary>
-    IReadOnlyList<ErrorCode> All { get; }
+    IReadOnlyList<ErrorDescriptor> All { get; }
 }

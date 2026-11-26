@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Hlibz.Results;
 
 /// <summary>
@@ -22,7 +24,29 @@ public static class ResultExtensions
         ArgumentNullException.ThrowIfNull(map);
         return result.IsSuccess
             ? Result<TDestination>.Success(map(result.Value))
-            : Result<TDestination>.FromFailed(result);
+            : Result<TDestination>.Failure(result.Error);
+    }
+
+    /// <summary>
+    /// Transforms the value of a successful result, keeping its error set; a failure is passed
+    /// on unchanged.
+    /// </summary>
+    /// <typeparam name="TSource">The type of the value.</typeparam>
+    /// <typeparam name="TDestination">The type of the transformed value.</typeparam>
+    /// <typeparam name="TError">The error set.</typeparam>
+    /// <param name="result">The result to transform.</param>
+    /// <param name="map">The transformation, called only on success.</param>
+    /// <returns>The transformed value, or the same failure.</returns>
+    public static Result<TDestination, TError> Map<TSource, TDestination, TError>(
+        this Result<TSource, TError> result,
+        Func<TSource, TDestination> map)
+        where TError : struct, IUnion
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(map);
+        return result.IsSuccess
+            ? Result<TDestination, TError>.Success(map(result.Value))
+            : Result<TDestination, TError>.Failure(result.Error);
     }
 
     /// <summary>
@@ -57,7 +81,29 @@ public static class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(next);
-        return result.IsSuccess ? next(result.Value) : Result<TDestination>.FromFailed(result);
+        return result.IsSuccess ? next(result.Value) : Result<TDestination>.Failure(result.Error);
+    }
+
+    /// <summary>
+    /// Runs the next step on the value of a successful result, with the same error set; a
+    /// failure is passed on unchanged.
+    /// </summary>
+    /// <typeparam name="TSource">The type of the value.</typeparam>
+    /// <typeparam name="TDestination">The type of the next step's value.</typeparam>
+    /// <typeparam name="TError">The error set.</typeparam>
+    /// <param name="result">The result to continue from.</param>
+    /// <param name="next">The next step, called only on success.</param>
+    /// <returns>The next step's result, or the same failure.</returns>
+    public static Result<TDestination, TError> Bind<TSource, TDestination, TError>(
+        this Result<TSource, TError> result,
+        Func<TSource, Result<TDestination, TError>> next)
+        where TError : struct, IUnion
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(next);
+        return result.IsSuccess
+            ? next(result.Value)
+            : Result<TDestination, TError>.Failure(result.Error);
     }
 
     /// <summary>
@@ -73,6 +119,6 @@ public static class ResultExtensions
     {
         ArgumentNullException.ThrowIfNull(result);
         ArgumentNullException.ThrowIfNull(next);
-        return result.IsSuccess ? next() : Result<TDestination>.FromFailed(result);
+        return result.IsSuccess ? next() : Result<TDestination>.Failure(result.Error);
     }
 }

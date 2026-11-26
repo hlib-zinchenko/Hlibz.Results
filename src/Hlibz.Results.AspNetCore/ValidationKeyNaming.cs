@@ -1,7 +1,7 @@
 namespace Hlibz.Results.AspNetCore;
 
 /// <summary>
-/// How the keys of <see cref="Result.ValidationErrors"/> (property paths such as
+/// How the keys of <see cref="ValidationFailed.Errors"/> (property paths such as
 /// <c>Items[0].UnitPrice</c>) are written in a response.
 /// </summary>
 public enum ValidationKeyNaming

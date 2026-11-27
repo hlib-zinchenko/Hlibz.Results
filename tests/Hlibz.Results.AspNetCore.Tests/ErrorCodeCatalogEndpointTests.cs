@@ -17,7 +17,7 @@ public sealed class ErrorCodeCatalogEndpointTests
     private static readonly string[] UserCodes =
     [
         "concurrency_conflict", "forbidden", "rate_limited", "test_1001", "test_1002", "test_1003",
-        "test_1004", "test_1005", "test_1006", "unauthorized", "unavailable", "validation_failed",
+        "test_1004", "test_1005", "test_1006", "test_1007", "unauthorized", "unavailable", "validation_failed",
     ];
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -57,6 +57,45 @@ public sealed class ErrorCodeCatalogEndpointTests
         Assert.Equal("Order 7 was not found.", notFound.GetProperty("message").GetString());
         Assert.True(notFound.GetProperty("details").GetProperty("properties").TryGetProperty("order_id", out _));
         Assert.False(closed.TryGetProperty("details", out _));
+    }
+
+    [Fact]
+    public async Task MapErrorCodes_ForAnErrorWithStronglyTypedIds_DescribesThemAsTheValueTheyWrap()
+    {
+        using HttpClient client = await TestApp.StartAsync(app => app.MapErrorCodes());
+
+        using HttpResponseMessage response = await client.GetAsync("/api/error-codes", Ct);
+        JsonElement properties = (await response.ReadJsonAsync()).EnumerateArray()
+            .Single(entry => entry.GetProperty("code").GetString() == "test_1007")
+            .GetProperty("details")
+            .GetProperty("properties");
+
+        Assert.Equal(
+            """{"type":"string","format":"uuid"}""",
+            properties.GetProperty("customer_id").GetRawText().Replace(" ", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(
+            """{"type":["string","null"],"format":"uuid"}""",
+            properties.GetProperty("merged_into").GetRawText().Replace(" ", string.Empty, StringComparison.Ordinal));
+        Assert.Equal(
+            """{"type":"array","items":{"type":"string","format":"uuid"}}""",
+            properties.GetProperty("related").GetRawText().Replace(" ", string.Empty, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task MapErrorCodes_ForAnErrorWithStringEnums_GivesThemTheirType()
+    {
+        using HttpClient client = await TestApp.StartAsync(app => app.MapErrorCodes());
+
+        using HttpResponseMessage response = await client.GetAsync("/api/error-codes", Ct);
+        JsonElement properties = (await response.ReadJsonAsync()).EnumerateArray()
+            .Single(entry => entry.GetProperty("code").GetString() == "test_1007")
+            .GetProperty("details")
+            .GetProperty("properties");
+
+        Assert.Equal("string", properties.GetProperty("tier").GetProperty("type").GetString());
+        Assert.Equal(
+            ["string", "null"],
+            properties.GetProperty("previous_tier").GetProperty("type").EnumerateArray().Select(type => type.GetString()));
     }
 
     [Fact]

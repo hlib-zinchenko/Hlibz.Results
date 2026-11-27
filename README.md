@@ -303,7 +303,11 @@ app.MapErrorCodes("api/admin/error-codes", "admin").RequireAuthorization("Admin"
 Each catalog lists the ambient errors too, and rejects two assemblies sharing a code at startup
 (two errors sharing a code in one assembly is a build error); the same assembly may be in several
 catalogs. Each entry is the error's code, the HTTP status it goes out with, its message and the
-JSON schema of its `details`, as the app's JSON options write it. From a controller, inject
+JSON schema of its `details`, as the app's JSON options write it. A strongly-typed ID (a struct
+whose only public property is `Value`, such as a `[StronglyTypedId]`) is described as the value it
+wraps, `{ "type": "string", "format": "uuid" }` for a `Guid`, where its JSON converter would
+otherwise leave it as any value, and an enum written by name gets its `"type": "string"`. From a
+controller, inject
 `IErrorCodeCatalog` for the default one and `[FromKeyedServices("admin")] IErrorCodeCatalog` for
 a named one.
 

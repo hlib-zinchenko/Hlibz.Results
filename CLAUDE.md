@@ -44,7 +44,10 @@ Four NuGet packages released together from one tag (plus a build tool packed ins
   (`Internal/ErrorResponseAuthorizationResultHandler`, only on a 401/403, written as the ambient
   `Unauthorized`/`Forbidden`: a scheme's redirect, such as the cookie login 302, is left as it is), `WriteErrorAsync`, `AddErrorCodeCatalog` +
   `MapErrorCodes` (published as `ErrorCodeInfo`s, `Internal/ErrorCodeInfos`: code, HTTP status,
-  message, details JSON schema written with strict number handling). An error's data goes out as
+  message, details JSON schema written with strict number handling; a strongly-typed ID, a struct
+  whose only public instance property is `Value`, is described as that value, since the exporter
+  writes `true` for a type with a custom converter and drops an array's `items` of one; an enum
+  gets the `type` of its values, which `JsonStringEnumConverter` leaves out). An error's data goes out as
   `ErrorResponse.Details`/the envelope's `Details` (the error record, `ResultResponses.DetailsOf`:
   only with `HasDetails`, never for `ValidationFailed`, whose messages are `ValidationErrors`, and
   only when the JSON options can write the type, so a missing AOT registration drops the details

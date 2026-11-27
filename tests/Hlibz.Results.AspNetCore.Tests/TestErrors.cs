@@ -1,6 +1,20 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace Hlibz.Results.AspNetCore.Tests;
 
 #pragma warning disable SA1649, SA1402 // The errors and DTOs the tests share, together.
+
+[JsonConverter(typeof(JsonStringEnumConverter<CustomerTier>))]
+public enum CustomerTier
+{
+    Basic,
+    Gold,
+}
+
+/// <summary>A strongly-typed ID, written as its <see cref="Guid"/> by its own converter.</summary>
+[JsonConverter(typeof(CustomerIdConverter))]
+public readonly record struct CustomerId(Guid Value);
 
 public static class TestErrors
 {
@@ -26,5 +40,22 @@ public sealed record NoCount : Error;
 
 [Error("test_1006", ResultStatus.Conflict, "Taken.")]
 public sealed record Taken(IReadOnlyList<int> TakenBy) : Error;
+
+[Error("test_1007", ResultStatus.NotFound, "No such customer.")]
+public sealed record CustomerNotFound(
+    CustomerId CustomerId,
+    CustomerId? MergedInto,
+    IReadOnlyList<CustomerId> Related,
+    CustomerTier Tier,
+    CustomerTier? PreviousTier) : Error;
+
+public sealed class CustomerIdConverter : JsonConverter<CustomerId>
+{
+    public override CustomerId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        new(reader.GetGuid());
+
+    public override void Write(Utf8JsonWriter writer, CustomerId value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.Value);
+}
 
 public sealed record OrderDto(int OrderId, string CustomerName);

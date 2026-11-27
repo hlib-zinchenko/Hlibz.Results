@@ -9,19 +9,22 @@
 [![Hlibz.Results.AspNetCore](https://img.shields.io/nuget/v/Hlibz.Results.AspNetCore?label=Hlibz.Results.AspNetCore)](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)
 [![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.AspNetCore?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.AspNetCore)<br>
 [![Hlibz.Results.FluentValidation](https://img.shields.io/nuget/v/Hlibz.Results.FluentValidation?label=Hlibz.Results.FluentValidation)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
-[![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.FluentValidation?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
+[![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.FluentValidation?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)<br>
+[![Hlibz.Results.Mcp](https://img.shields.io/nuget/v/Hlibz.Results.Mcp?label=Hlibz.Results.Mcp)](https://www.nuget.org/packages/Hlibz.Results.Mcp)
+[![downloads](https://img.shields.io/nuget/dt/Hlibz.Results.Mcp?label=downloads)](https://www.nuget.org/packages/Hlibz.Results.Mcp)
 
 A Result pattern for .NET APIs with **typed errors**: every failure is a record carrying the data
 a client needs to act on it, an operation declares the errors it returns as a C# 15 `union`, and
 documentation lists each one with its data. One error body for every failure: from your
 handlers, through minimal API endpoints or controllers, to the authorization gate's own 401/403
-and anything your middleware writes.
+and anything your middleware writes. MCP tools fail the same way, with guidance for the model.
 
 | Package | What it gives you |
 |---|---|
 | `Hlibz.Results` | `Result`, `Result<T>`, `Result<T, TError>`, `Error` + `[Error]`, the ambient errors, `Map`/`Bind`, `ErrorCodeCatalog`, and the source generator and analyzer behind them. No dependencies. |
 | `Hlibz.Results.AspNetCore` | `ToHttpResult()` (minimal APIs), `ToActionResult()` (controllers), `ErrorResponse` with the error's `details`, each declared error documented per endpoint, the optional envelope, the auth gate's error body, `WriteErrorAsync`, `MapErrorCodes`. |
 | `Hlibz.Results.FluentValidation` | `validationResult.ToValidationFailed()`. |
+| `Hlibz.Results.Mcp` | MCP tool errors: `ValueOrThrow()` in a tool, `WithToolErrors(...)` with guidance per error, `[ToolErrors<TErrorSet>]`, each tool's errors in its `_meta`. |
 
 Targets .NET 11 (C# 15). .NET 10 apps stay on 2.x.
 
@@ -415,6 +418,67 @@ The envelope's `status` follows the same mapping, so it always matches the respo
 missing/invalid token (401) or a failed policy (403) gets the same body. It replaces any other
 handler you registered.
 
+## MCP tools
+
+Hlibz.Results.Mcp turns errors into MCP tool errors a model can act on. MCP has no error shape: a
+failed call is `isError` with text, so a model reads the text and guesses. Here the text is
+**guidance**: what to do next, in terms of your tools, with the error's data filled in. The
+error's message says what failed, for your logs. A tool's definition lists the errors it can
+return, so a model (or a docs page) knows them before it calls.
+
+```csharp
+[McpServerTool(Name = "delete_city")]
+[ToolErrors<DeleteCityError>]   // the error set the tool's result declares
+[ToolError<ValidationFailed>]   // an ambient error it can fail with too
+public static async Task<Unit> DeleteAsync(CityService cities, Guid cityId, CancellationToken ct) =>
+    (await cities.DeleteAsync(cityId, ct)).ValueOrThrow();
+
+builder.Services.AddMcpServer()
+    .WithToolsFromAssembly()
+    .WithToolErrors(errors => errors
+        .Guide<CityNotFound>("No city has id {cityId}. Call list_cities to find its id.")
+        .Guide<CityInUse>("{userCount} users live in the city. Ask the user whether to move them first.")
+        .Guide<ValidationFailed>("Fix these arguments and call the tool again: {errors}"));
+```
+
+A failed `delete_city`:
+
+```json
+{
+  "isError": true,
+  "content": [{ "type": "text", "text": "city_in_use: 3 users live in the city. Ask the user whether to move them first." }],
+  "structuredContent": { "code": "city_in_use", "details": { "cityId": "6f1c…", "userCount": 3 } }
+}
+```
+
+- **Unwrapping.** MCP tools return their value, which the SDK serializes before any filter sees
+  it, so a tool can't return the result itself: `ValueOrThrow()` (or `ThrowIfFailed()` on a plain
+  `Result`) throws a `ToolErrorException`, which `WithToolErrors` turns into the error above.
+  Without `WithToolErrors` it is still an `McpException`, sent as `"code: message"`.
+- **Guidance.** `{name}` placeholders are the error's details as they go out (`{cityId}`); a
+  `ValidationFailed`'s one detail is `{errors}`, written as `key: message; key: message`. An
+  error without guidance goes out with its message.
+- **Declaring a tool's errors.** `[ToolErrors<TErrorSet>]` (an error set) and
+  `[ToolError<TError>]` (one error: an ambient one such as `ValidationFailed` or `Forbidden`, or
+  one of a tool unwrapping a plain `Result<T>`), as many as it needs. An `IToolErrorSource`
+  service works out more, such as the errors of the use case a tool runs; its errors follow the
+  declared ones, each listed once.
+- **`_meta`.** Each tool with errors lists them under `hlibz/errors` (`ToolErrorOptions.MetaKey`):
+  `[{ "code", "description", "guidance" }]`, the description being the error's declared message.
+  [Hlibz.McpDocs.AspNetCore](https://www.nuget.org/packages/Hlibz.McpDocs.AspNetCore) reads the
+  same key and lists them on the tool, with the guidance; neither package references the other.
+- **Checked at start.** The host doesn't start (an `OptionsValidationException` naming each
+  problem) while a tool's error has no guidance, a guidance names a detail its error doesn't
+  have, or a source lists a type that isn't an error. `RequireGuidance = false` allows errors
+  without guidance.
+- **JSON.** Details are written with `ToolErrorOptions.SerializerOptions`, by default the MCP
+  SDK's (`McpJsonUtilities.DefaultOptions`, camelCase) like your tools' results; a
+  `ValidationFailed`'s keys are converted with its naming policy, segment by segment
+  (`items[0].unitPrice`). Under Native AOT, an error type those options can't write goes out
+  without details.
+
+Works with the MCP C# SDK (ModelContextProtocol) 2.3.1 and later.
+
 ## Errors outside endpoints
 
 ```csharp
@@ -504,12 +568,15 @@ every case.
 
 - [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore):
   OpenAPI transformers for Microsoft.AspNetCore.OpenApi.
+- [Hlibz.McpDocs.AspNetCore](https://www.nuget.org/packages/Hlibz.McpDocs.AspNetCore): a docs
+  page for an MCP server, which lists each tool's errors from Hlibz.Results.Mcp with their
+  guidance.
 
 ## Versioning
 
 Every package in this repository is released under one version, from one `vX.Y.Z` tag, so
 matching versions always go together. Dependencies are declared as minimums (FluentValidation
-11.0.0 and later), so a new FluentValidation or ASP.NET Core release needs no new Hlibz.Results
+11.0.0 and later, the MCP C# SDK 2.3.1 and later), so a new FluentValidation, MCP SDK or ASP.NET Core release needs no new Hlibz.Results
 release: reference the newer version in your app and NuGet uses it. 2.0.0 dropped .NET 8 and 9;
 3.0.0 targets .NET 11 only and replaces error codes with typed errors (`ErrorCode`,
 `Result.NotFound(...)` and the other status factories, `FromFailed`, `ErrorMessage`,

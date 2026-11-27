@@ -18,6 +18,12 @@
         -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
+        <!--
+            The oldest MCP SDK Hlibz.Results.Mcp supports (2.3.1: call-tool filters, tool _meta),
+            packed as a ">= 2.3.1" dependency and what the tests run against. Raise it only when
+            the package needs a newer API (Dependabot ignores it).
+        -->
+        <PackageVersion Include="ModelContextProtocol" Version="2.3.1" />
         <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.36.0.15337" />
         <PackageVersion Include="StyleCop.Analyzers" Version="1.3.180" />
         <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />

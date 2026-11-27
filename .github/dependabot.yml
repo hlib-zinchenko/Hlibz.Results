@@ -13,6 +13,8 @@ updates:
       - dependency-name: FluentValidation
       # The Roslyn the generator compiles against is a deliberately low minimum, never bumped.
       - dependency-name: Microsoft.CodeAnalysis.CSharp
+      # The MCP SDK Hlibz.Results.Mcp depends on is a minimum too, never bumped.
+      - dependency-name: ModelContextProtocol
     groups:
       nuget:
         patterns: ["*"]

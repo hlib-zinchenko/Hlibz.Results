@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup Label="NuGet metadata">
+    <PackageId>Hlibz.Results.Mcp</PackageId>
+    <Description>Turns Hlibz.Results errors into MCP tool errors a model can act on: a tool unwraps its result with ValueOrThrow(), and a failed call comes back as isError with guidance (what to do next, in terms of your tools, its {placeholders} filled from the error's data) as text, and { code, details } as structured content. Each tool lists the errors it can return, declared with [ToolErrors&lt;TErrorSet&gt;] or worked out by your own IToolErrorSource, in its _meta under "hlibz/errors", which Hlibz.McpDocs.AspNetCore shows on its docs page. The server doesn't start while a tool's error has no guidance.</Description>
+    <PackageTags>result;result-pattern;mcp;model-context-protocol;tools;error-handling;error-codes;ai</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Hlibz.Results\Hlibz.Results.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Hlibz.Results.Mcp.Tests" />
+  </ItemGroup>
+
+</Project>

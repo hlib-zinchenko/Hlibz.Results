@@ -4,7 +4,7 @@ Guidance for Claude Code when working in this repository.
 
 ## What this is
 
-Three NuGet packages released together from one tag (plus a build tool packed inside one):
+Four NuGet packages released together from one tag (plus a build tool packed inside one):
 
 - `src/Hlibz.Results`: typed errors. `Error` (abstract record: `Code`/`Status`/`Message` from the
   type's `[Error(code, status, message)]` via `ErrorDescriptor.For(GetType())`, all `[JsonIgnore]`;
@@ -83,6 +83,28 @@ Three NuGet packages released together from one tag (plus a build tool packed in
 - `src/Hlibz.Results.FluentValidation`: `ToValidationFailed()` (a `ValidationFailed`, which any
   result accepts) and `ToErrors()` for the raw dictionary. Deliberately plain extension methods:
   BannedApiAnalyzers can't ban calls to extension members.
+- `src/Hlibz.Results.Mcp` (on the MCP C# SDK `ModelContextProtocol`, a 2.3.1 minimum Dependabot
+  ignores; no ASP.NET): errors as MCP tool errors with guidance. The SDK serializes a tool's
+  return value before any filter sees it (no hook for the raw value, checked on 2.3.1), so tools
+  unwrap with `ToolResultExtensions.ValueOrThrow()`/`ThrowIfFailed()`, which throw
+  `ToolErrorException : McpException`. `WithToolErrors(configure)` (`IMcpServerBuilder`, once
+  however often it's called; each `configure` adds to `ToolErrorOptions`) adds
+  `Internal/ToolErrorFilter` (a call-tool filter: `isError`, `"code: guidance"` text,
+  `structuredContent { code, details? }`, `Internal/ToolErrorResults`) and
+  `Internal/ToolErrorCatalog`, both an `IPostConfigureOptions<McpServerOptions>` (writes each
+  tool's errors into `Tool.Meta["hlibz/errors"]`: `[{ code, description, guidance? }]`,
+  `ToolErrorOptions.MetaKey`) and an `IValidateOptions<McpServerOptions>` with `ValidateOnStart`
+  (missing guidance, a placeholder that isn't a detail, a listed type that isn't an error). A
+  tool's errors: its `ToolErrorsAttribute`s from `McpServerTool.Metadata` (`[ToolErrors<TErrorSet>]`
+  through `ErrorSetDescriptor`, `[ToolError<TError>]`), then each `IToolErrorSource`, distinct.
+  Details (`Internal/ToolErrorDetails`) mirror `ResultResponses.DetailsOf` (only `HasDetails`,
+  only when `TryGetTypeInfo` succeeds) with the SDK's JSON options by default; detail names skip
+  properties without a getter (the base's `[JsonIgnore]`d ones are listed that way);
+  `ValidationFailed` goes out as `{ errors }`, keys through `Internal/ValidationKeyFormatter` (a
+  copy of AspNetCore's). Hlibz.McpDocs.AspNetCore reads the same `_meta` key: the packages don't
+  reference each other, the key and shape are the contract. Tests run a server and client in
+  memory over pipes (`McpTestServer`); register static tool classes with `WithToolsFromAssembly`
+  (`WithTools(typeof(X))` binds to the generic `WithTools<Type>(target)` overload).
 
 Validation keys are stored raw in `ValidationFailed`; casing is an HTTP concern
 (`ValidationKeyFormatter`). Likewise `ResultStatus` (on each `[Error]`) says what failed
@@ -132,7 +154,7 @@ named `Subject_WithCondition_ExpectedOutcome`. Versions are central (`Directory.
 the shared NuGet metadata and `Version` live in `Directory.Build.props`, release by pushing a
 `vX.Y.Z` tag (see Releasing).
 
-Release policy: the three packages always ship together under one version (lockstep), even when
+Release policy: the four packages always ship together under one version (lockstep), even when
 only one changed. Dependencies are minimums, not the latest: FluentValidation stays at the oldest
 version the adapter supports (11.0.0; Dependabot ignores it) and the tests run against it, so a
 new FluentValidation release needs no release here. Raise it only when the adapter needs a newer

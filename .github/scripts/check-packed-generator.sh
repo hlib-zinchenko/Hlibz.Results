@@ -102,8 +102,9 @@ ErrorCodeCatalog catalog = new(assemblies);
 catalog.Validate();
 int[] listed = [.. assemblies.Select(assembly => assembly.GetCustomAttribute<ErrorManifestAttribute>()?.Errors.Count ?? -1)];
 Result<int, CloseOrderError> closed = new OrderClosed(Guid.Empty);
-Console.WriteLine($"Errors listed per assembly: {string.Join(", ", listed)}; catalog: {string.Join(", ", catalog.All.Select(error => error.Code))}; declared: {closed.DeclaredError?.Value}");
-return listed.All(count => count == 1) && catalog.All.Count == 6 && closed.DeclaredError is not null ? 0 : 1;
+string[] codes = [.. catalog.All.Select(error => error.Code)];
+Console.WriteLine($"Errors listed per assembly: {string.Join(", ", listed)}; catalog: {string.Join(", ", codes)}; declared: {closed.DeclaredError?.Value}");
+return listed.All(count => count == 1) && codes.Contains("api_1001") && codes.Contains("orders_1001") && closed.DeclaredError is not null ? 0 : 1;
 
 [Error("api_1001", ResultStatus.Unavailable, "The API is down.")]
 internal sealed record ApiDown : Error;

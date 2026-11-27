@@ -26,7 +26,29 @@ and anything your middleware writes. MCP tools fail the same way, with guidance 
 | `Hlibz.Results.FluentValidation` | `validationResult.ToValidationFailed()`. |
 | `Hlibz.Results.Mcp` | MCP tool errors: `ValueOrThrow()` in a tool, `WithToolErrors(...)` with guidance per error, `[ToolErrors<TErrorSet>]`, each tool's errors in its `_meta`. |
 
-Targets .NET 11 (C# 15). .NET 10 apps stay on 2.x.
+Targets .NET 11 (C# 15 unions). .NET 10 apps stay on 2.x.
+
+## A family of packages
+
+Hlibz.Results is one of five packages I build to set up new .NET APIs the way I want them:
+**Hlibz.Results**, [Hlibz.UseCases](https://github.com/hlib-zinchenko/Hlibz.UseCases),
+[Hlibz.MinimalApi.Endpoints](https://github.com/hlib-zinchenko/Hlibz.MinimalApi.Endpoints),
+[Hlibz.OpenApi](https://github.com/hlib-zinchenko/Hlibz.OpenApi) and
+[Hlibz.Paging](https://github.com/hlib-zinchenko/Hlibz.Paging). Each one works on its own, and they
+work best together: [Hlibz.Stack](https://github.com/hlib-zinchenko/Hlibz.Stack) is an API where all
+five meet, along with [Hlibz.Redoc](https://github.com/hlib-zinchenko/Hlibz.Redoc) and
+[Hlibz.McpDocs.AspNetCore](https://github.com/hlib-zinchenko/Hlibz.McpDocs.AspNetCore).
+
+Because they follow what my projects need, new minor and major versions come often. When .NET gives
+me a better way to do something, it goes into a new major straight away: Hlibz.Results 2.0 came a
+week after 1.0, and the first 3.0 preview, built on C# 15 unions, nine days after 2.0. Breaking
+changes only ever come in a major, its
+[release notes](https://github.com/hlib-zinchenko/Hlibz.Results/releases) list them first, and older
+versions stay on NuGet, so read the notes before you move up a major.
+
+You're welcome to use them, and to
+[open an issue](https://github.com/hlib-zinchenko/Hlibz.Results/issues) when something is wrong or
+missing.
 
 ## Why another Result library?
 
@@ -502,6 +524,20 @@ if (!validation.IsValid)
 
 `validation.ToErrors()` gives the raw errors dictionary if you build the failure yourself.
 
+## Build errors
+
+Hlibz.Results' analyzer reports these as you build, each an error since it would otherwise fail
+at runtime:
+
+| Id | Meaning |
+|---|---|
+| `HRES001` | An error type is generic, or nested in a private or protected type: the generated manifest can't name it. |
+| `HRES002` | A non-abstract error type has no `[Error]` attribute of its own. |
+| `HRES003` | Two error types in the assembly share a code. |
+| `HRES004` | A `Result<T, TError>`'s `TError` isn't an error set: a non-generic `union` of error types, none of them ambient. |
+| `HRES005` | An error is returned (converted, or passed to `Failure`) where the result's error set doesn't list it. |
+| `HRES006` | An `[Error]` has a blank code or the `Success` status. |
+
 ## Limitations
 
 - **`[ApiController]` model-binding failures.** Controllers with `[ApiController]` answer them
@@ -544,42 +580,24 @@ if (!validation.IsValid)
   scheme that answers with a redirect instead (cookies: 302 to the login or access denied page)
   keeps its redirect, with no body.
 
-## Build errors
-
-Hlibz.Results' analyzer reports these as you build, each an error since it would otherwise fail
-at runtime:
-
-| Id | Meaning |
-|---|---|
-| `HRES001` | An error type is generic, or nested in a private or protected type: the generated manifest can't name it. |
-| `HRES002` | A non-abstract error type has no `[Error]` attribute of its own. |
-| `HRES003` | Two error types in the assembly share a code. |
-| `HRES004` | A `Result<T, TError>`'s `TError` isn't an error set: a non-generic `union` of error types, none of them ambient. |
-| `HRES005` | An error is returned (converted, or passed to `Failure`) where the result's error set doesn't list it. |
-| `HRES006` | An `[Error]` has a blank code or the `Success` status. |
-
 ## Samples
 
 [`samples/`](samples/README.md) has a cities API: typed errors with data, error sets, an ambient
 validation failure, the documented responses and the error code catalog, with a `.http` file for
 every case.
 
-## Related packages
-
-- [Hlibz.OpenApi.AspNetCore](https://www.nuget.org/packages/Hlibz.OpenApi.AspNetCore):
-  OpenAPI transformers for Microsoft.AspNetCore.OpenApi.
-- [Hlibz.McpDocs.AspNetCore](https://www.nuget.org/packages/Hlibz.McpDocs.AspNetCore): a docs
-  page for an MCP server, which lists each tool's errors from Hlibz.Results.Mcp with their
-  guidance.
+```bash
+dotnet run --project samples/Cities.Api   # http://localhost:5180
+```
 
 ## Versioning
 
-Every package in this repository is released under one version, from one `vX.Y.Z` tag, so
-matching versions always go together. Dependencies are declared as minimums (FluentValidation
-11.0.0 and later, the MCP C# SDK 2.4.0 and later), so a new FluentValidation, MCP SDK or ASP.NET Core release needs no new Hlibz.Results
-release: reference the newer version in your app and NuGet uses it. 2.0.0 dropped .NET 8 and 9;
-3.0.0 targets .NET 11 only and replaces error codes with typed errors (`ErrorCode`,
-`Result.NotFound(...)` and the other status factories, `FromFailed`, `ErrorMessage`,
+Every package in this repository is released under one version, from one `vX.Y.Z` tag, so matching
+versions always go together. Dependencies are declared as minimums (FluentValidation 11.0.0 and
+later, the MCP C# SDK 2.4.0 and later), so a new FluentValidation, MCP SDK or ASP.NET Core release
+needs no new Hlibz.Results release: reference the newer version in your app and NuGet uses it. 2.0.0
+dropped .NET 8 and 9; 3.0.0 targets .NET 11 only and replaces error codes with typed errors
+(`ErrorCode`, `Result.NotFound(...)` and the other status factories, `FromFailed`, `ErrorMessage`,
 `ValidationErrors` and `ResultMessages` are gone), so .NET 10 apps stay on 2.x.
 
 Release notes: [GitHub Releases](https://github.com/hlib-zinchenko/Hlibz.Results/releases).

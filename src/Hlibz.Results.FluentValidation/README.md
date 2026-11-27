@@ -31,10 +31,17 @@ if (!validation.IsValid)
 Works with FluentValidation 11.0.0 and later: reference the version you want in your app and
 NuGet uses it.
 
-## Related packages
+Targets .NET 11 (C# 15 unions). .NET 10 apps stay on 2.x.
 
-- [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types.
-- [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore): results
-  to HTTP responses with one error body, for minimal APIs and controllers.
+## A family of packages
+
+One of five packages I build to set up new .NET APIs the way I want them: Hlibz.Results,
+Hlibz.UseCases, Hlibz.MinimalApi.Endpoints, Hlibz.OpenApi and Hlibz.Paging. Each works on its own,
+and they work best together, as in [Hlibz.Stack](https://github.com/hlib-zinchenko/Hlibz.Stack). New
+minor and major versions come often, a new major whenever .NET gives me a better way to do
+something. Breaking changes only ever come in a major and are listed first in its
+[release notes](https://github.com/hlib-zinchenko/Hlibz.Results/releases). You're welcome to use the
+packages, and to [open an issue](https://github.com/hlib-zinchenko/Hlibz.Results/issues) when
+something is wrong or missing.
 
 Full documentation and samples: [github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).

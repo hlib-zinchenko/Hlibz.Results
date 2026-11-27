@@ -74,12 +74,17 @@ its metadata when it builds the endpoint, even under `WithResultResponses()`), t
 `ResultEnvelope<T>`s and values you return, and each error type with data (one missing goes out
 without `details`).
 
-## Related packages
+Targets .NET 11 (C# 15 unions). .NET 10 apps stay on 2.x.
 
-- [Hlibz.Results](https://www.nuget.org/packages/Hlibz.Results): the `Result` types.
-- [Hlibz.Results.FluentValidation](https://www.nuget.org/packages/Hlibz.Results.FluentValidation):
-  a failed validation as a `ValidationFailed` error.
-- [Hlibz.MinimalApi.Endpoints](https://www.nuget.org/packages/Hlibz.MinimalApi.Endpoints):
-  minimal API endpoints as classes; their handlers return results the same way.
+## A family of packages
+
+One of five packages I build to set up new .NET APIs the way I want them: Hlibz.Results,
+Hlibz.UseCases, Hlibz.MinimalApi.Endpoints, Hlibz.OpenApi and Hlibz.Paging. Each works on its own,
+and they work best together, as in [Hlibz.Stack](https://github.com/hlib-zinchenko/Hlibz.Stack). New
+minor and major versions come often, a new major whenever .NET gives me a better way to do
+something. Breaking changes only ever come in a major and are listed first in its
+[release notes](https://github.com/hlib-zinchenko/Hlibz.Results/releases). You're welcome to use the
+packages, and to [open an issue](https://github.com/hlib-zinchenko/Hlibz.Results/issues) when
+something is wrong or missing.
 
 Full documentation and samples: [github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).

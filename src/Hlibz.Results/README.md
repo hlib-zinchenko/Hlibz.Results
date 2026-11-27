@@ -7,7 +7,7 @@
 
 `Result`, `Result<T>` and `Result<T, TError>` for returning expected failures instead of
 throwing, with **typed errors**: each failure is a record carrying the data a client needs, and
-an operation declares the errors it returns as a C# 15 `union`. No dependencies; .NET 11.
+an operation declares the errors it returns as a C# 15 `union`. No dependencies.
 
 ```bash
 dotnet add package Hlibz.Results
@@ -56,12 +56,23 @@ is scanned at runtime (the package is AOT-compatible), and an analyzer reports a
 what would fail at runtime: an error without `[Error]`, two sharing a code, an error returned
 where the set doesn't list it.
 
-## Related packages
+[Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore) sends results
+as HTTP responses with one error body and documents each declared error per endpoint;
+[Hlibz.Results.FluentValidation](https://www.nuget.org/packages/Hlibz.Results.FluentValidation)
+turns a failed `ValidationResult` into `ValidationFailed`;
+[Hlibz.Results.Mcp](https://www.nuget.org/packages/Hlibz.Results.Mcp) fails MCP tools with them.
 
-- [Hlibz.Results.AspNetCore](https://www.nuget.org/packages/Hlibz.Results.AspNetCore): results
-  to HTTP responses with one error body and the error's data as details, each declared error
-  documented per endpoint.
-- [Hlibz.Results.FluentValidation](https://www.nuget.org/packages/Hlibz.Results.FluentValidation):
-  a failed `ValidationResult` as a `ValidationFailed` error.
+Targets .NET 11 (C# 15 unions). .NET 10 apps stay on 2.x.
+
+## A family of packages
+
+One of five packages I build to set up new .NET APIs the way I want them: Hlibz.Results,
+Hlibz.UseCases, Hlibz.MinimalApi.Endpoints, Hlibz.OpenApi and Hlibz.Paging. Each works on its own,
+and they work best together, as in [Hlibz.Stack](https://github.com/hlib-zinchenko/Hlibz.Stack). New
+minor and major versions come often, a new major whenever .NET gives me a better way to do
+something. Breaking changes only ever come in a major and are listed first in its
+[release notes](https://github.com/hlib-zinchenko/Hlibz.Results/releases). You're welcome to use the
+packages, and to [open an issue](https://github.com/hlib-zinchenko/Hlibz.Results/issues) when
+something is wrong or missing.
 
 Full documentation and samples: [github.com/hlib-zinchenko/Hlibz.Results](https://github.com/hlib-zinchenko/Hlibz.Results).

@@ -54,7 +54,7 @@ Tools return their value, which the MCP SDK serializes before any filter sees it
 unwraps its result with `ValueOrThrow()` (or `ThrowIfFailed()`). Without `WithToolErrors`, the
 `ToolErrorException` it throws is still an `McpException`, sent as `"code: message"`.
 
-Works with the MCP C# SDK (ModelContextProtocol) 2.3.1 and later.
+Works with the MCP C# SDK (ModelContextProtocol) 2.4.0 and later.
 
 ## Related packages
 

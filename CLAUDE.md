@@ -83,9 +83,9 @@ Four NuGet packages released together from one tag (plus a build tool packed ins
 - `src/Hlibz.Results.FluentValidation`: `ToValidationFailed()` (a `ValidationFailed`, which any
   result accepts) and `ToErrors()` for the raw dictionary. Deliberately plain extension methods:
   BannedApiAnalyzers can't ban calls to extension members.
-- `src/Hlibz.Results.Mcp` (on the MCP C# SDK `ModelContextProtocol`, a 2.3.1 minimum Dependabot
+- `src/Hlibz.Results.Mcp` (on the MCP C# SDK `ModelContextProtocol`, a 2.4.0 minimum Dependabot
   ignores; no ASP.NET): errors as MCP tool errors with guidance. The SDK serializes a tool's
-  return value before any filter sees it (no hook for the raw value, checked on 2.3.1), so tools
+  return value before any filter sees it (no hook for the raw value, checked on 2.4.0), so tools
   unwrap with `ToolResultExtensions.ValueOrThrow()`/`ThrowIfFailed()`, which throw
   `ToolErrorException : McpException`. `WithToolErrors(configure)` (`IMcpServerBuilder`, once
   however often it's called; each `configure` adds to `ToolErrorOptions`) adds

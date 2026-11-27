@@ -477,7 +477,7 @@ A failed `delete_city`:
   (`items[0].unitPrice`). Under Native AOT, an error type those options can't write goes out
   without details.
 
-Works with the MCP C# SDK (ModelContextProtocol) 2.3.1 and later.
+Works with the MCP C# SDK (ModelContextProtocol) 2.4.0 and later.
 
 ## Errors outside endpoints
 
@@ -576,7 +576,7 @@ every case.
 
 Every package in this repository is released under one version, from one `vX.Y.Z` tag, so
 matching versions always go together. Dependencies are declared as minimums (FluentValidation
-11.0.0 and later, the MCP C# SDK 2.3.1 and later), so a new FluentValidation, MCP SDK or ASP.NET Core release needs no new Hlibz.Results
+11.0.0 and later, the MCP C# SDK 2.4.0 and later), so a new FluentValidation, MCP SDK or ASP.NET Core release needs no new Hlibz.Results
 release: reference the newer version in your app and NuGet uses it. 2.0.0 dropped .NET 8 and 9;
 3.0.0 targets .NET 11 only and replaces error codes with typed errors (`ErrorCode`,
 `Result.NotFound(...)` and the other status factories, `FromFailed`, `ErrorMessage`,

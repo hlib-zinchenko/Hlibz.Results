@@ -62,9 +62,19 @@
     }
   },
   {
+    "code": "concurrency_conflict",
+    "status": 409,
+    "message": "The data was changed by someone else. Please reload and retry."
+  },
+  {
     "code": "forbidden",
     "status": 403,
     "message": "Access to the resource is forbidden."
+  },
+  {
+    "code": "rate_limited",
+    "status": 429,
+    "message": "Too many requests. Please retry later."
   },
   {
     "code": "unauthorized",

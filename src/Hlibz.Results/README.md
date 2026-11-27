@@ -45,7 +45,8 @@ string text = service.Delete(id).DeclaredError switch   // exhaustive: no _ arm
 
 - `[Error]` gives each error type its code, what failed (`ResultStatus`) and its message.
 - `Result<T, TError>` fails with an error of its set or an ambient one (`ValidationFailed`,
-  `Unauthorized`, `Forbidden`, `Unavailable`), which the layers around an operation add.
+  `Unauthorized`, `Forbidden`, `ConcurrencyConflict`, `RateLimited`, `Unavailable`), which the
+  layers around an operation add.
   `Result<T>` and `Result` fail with any error.
 - `Map`, `MapAsync` and `Bind` chain steps, keeping the error set.
 - `ErrorCodeCatalog` lists every error type of the assemblies you give it, plus the ambient

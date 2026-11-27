@@ -14,7 +14,7 @@ public sealed class ExtensionPointTests
     [InlineData("public sealed class MyResult<T> : Result<T> { public MyResult() : base(default, null) { } }", "CS0122")]
     [InlineData("public sealed class MyResult<T> : Result<T> { }", "CS1729")]
     [InlineData("public sealed class MyResult : Result<int, Set> { }", "CS0509")]
-    [InlineData("[Error(\"x_1\", ResultStatus.Error, \"X.\")] public sealed record RateLimited : AmbientError;", "CS9382")]
+    [InlineData("[Error(\"x_1\", ResultStatus.Error, \"X.\")] public sealed record WriteConflict : AmbientError;", "CS9382")]
     public void Subclass_InAnotherAssembly_DoesNotCompile(string declaration, string expected)
     {
         string source = $$"""

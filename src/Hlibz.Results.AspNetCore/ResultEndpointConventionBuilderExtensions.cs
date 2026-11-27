@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 using Hlibz.Results.AspNetCore.Internal;
 
 using Microsoft.AspNetCore.Builder;
@@ -146,5 +148,42 @@ public static class ResultEndpointConventionBuilderExtensions
         ArgumentNullException.ThrowIfNull(location);
         return builder.WithMetadata(
             new CreatedLocationMetadata(typeof(T), value => location((T)value!)));
+    }
+
+    /// <summary>
+    /// Documents the errors of <typeparamref name="TErrorSet"/> on an endpoint whose handler
+    /// doesn't return the <see cref="Result{T, TError}"/> that would declare them: one that returns
+    /// an <see cref="IResult"/> (a file, or a result it sends itself with
+    /// <see cref="HttpResultExtensions.ToHttpResult{T}"/>), or whose result a filter wraps. As
+    /// <see cref="WithResultResponses{TBuilder}"/> documents a declared error set: a response per
+    /// status code the errors are sent with (unless the endpoint documents that status code
+    /// itself) and every error in <see cref="DeclaredErrorsMetadata"/>, for documentation that
+    /// shows each error and its data (as Hlibz.OpenApi.Results does).
+    /// </summary>
+    /// <remarks>
+    /// Documentation only: how the endpoint sends its errors is up to its handler. They are
+    /// documented as <see cref="ResultEnvelope"/>s when <see cref="ResultHttpOptions.UseEnvelope"/>
+    /// is on (with no type for an envelope of the API's own,
+    /// <see cref="ResultHttpOptions.CreateEnvelope"/>), as <see cref="ErrorResponse"/>s otherwise.
+    /// Call it once per error set; with a handler that returns a <c>Result&lt;T, TError&gt;</c>
+    /// too, both sets are documented.
+    /// </remarks>
+    /// <example>
+    /// <code>
+    /// reports.MapGet("{id}/export", ExportReport) // returns IResult: a file, or result.ToHttpResult()
+    ///     .ProducesErrorSet&lt;ExportReportError&gt;();
+    /// </code>
+    /// </example>
+    /// <typeparam name="TErrorSet">The error set: a <see langword="union"/> of error types.</typeparam>
+    /// <param name="builder">The endpoint.</param>
+    /// <returns>The same builder.</returns>
+    /// <exception cref="InvalidOperationException"><typeparamref name="TErrorSet"/> isn't an error
+    /// set (see <see cref="ErrorSetDescriptor.For"/>).</exception>
+    public static RouteHandlerBuilder ProducesErrorSet<TErrorSet>(this RouteHandlerBuilder builder)
+        where TErrorSet : struct, IUnion
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ResultEndpoints.DocumentErrorSet(builder, typeof(TErrorSet));
+        return builder;
     }
 }

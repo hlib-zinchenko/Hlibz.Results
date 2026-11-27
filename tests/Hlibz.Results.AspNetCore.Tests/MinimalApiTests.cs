@@ -22,6 +22,12 @@ public sealed class MinimalApiTests
             HttpStatusCode.ServiceUnavailable,
             "The service is temporarily unavailable. Please retry later."
         },
+        {
+            "concurrency-conflict",
+            HttpStatusCode.Conflict,
+            "The data was changed by someone else. Please reload and retry."
+        },
+        { "rate-limited", HttpStatusCode.TooManyRequests, "Too many requests. Please retry later." },
     };
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -66,6 +72,8 @@ public sealed class MinimalApiTests
             app.MapGet("/forbidden", () => Result.Failure(new Forbidden()).ToHttpResult());
             app.MapGet("/conflict", () => Result.Failure(new Duplicate()).ToHttpResult());
             app.MapGet("/unavailable", () => Result.Failure(new Unavailable()).ToHttpResult());
+            app.MapGet("/concurrency-conflict", () => Result.Failure(new ConcurrencyConflict()).ToHttpResult());
+            app.MapGet("/rate-limited", () => Result.Failure(new RateLimited()).ToHttpResult());
         });
 
         using HttpResponseMessage response = await client.GetAsync($"/{route}", Ct);

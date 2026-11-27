@@ -7,7 +7,7 @@
 | `CityErrors.cs` | Errors as records with data (`CityInUse` lists the users that block a delete), and an error wording its message from its data (`FormatMessage`). |
 | `CityErrorSets.cs` | Error sets: the errors each operation declares, as unions. |
 | `CityService.cs` | `Result<T, TError>` and `Result<Unit, TError>`, an ambient `ValidationFailed` no set declares, and an error of a smaller set passed on into a larger one. |
-| `Program.cs` | `WithResultResponses()` on a group (each result sent as is, each declared error documented), `WithCreatedLocation` for 201 + `Location`, and `MapErrorCodes()`. |
+| `Program.cs` | `WithResultResponses()` on a group (each result sent as is, each declared error documented), `WithCreatedLocation` for 201 + `Location`, `ProducesErrorSet<T>()` on a CSV export returning `IResult`, and `MapErrorCodes()`. |
 | `error-codes/error-codes.json` | The catalog, written by every build (`ErrorCodesGenerateFiles`): each code, its status and its details' schema. Committed; CI fails when a build changes it. |
 
 ```bash

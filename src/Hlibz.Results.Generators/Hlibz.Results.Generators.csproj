@@ -4,7 +4,8 @@
       The source generator behind ErrorDescriptor, ErrorSetDescriptor and ErrorCodeCatalog: lists
       the error types and error sets (unions of error types) of the assembly it runs on as an
       ErrorManifestAttribute, which they read instead of scanning types, and the analyzer that
-      reports what would fail at runtime (HRES001-HRES006).
+      reports what would fail at runtime (HRES001-HRES006), and the suppressor of CA1815 on error
+      sets (a union has no equality members, and an error set is never compared).
       Not a package of its own: Hlibz.Results ships it under analyzers/dotnet/cs.
       netstandard2.0 and Roslyn 4.8, a low minimum: unions need no newer API, since a union
       declaration is a TypeDeclarationSyntax and compiles to a struct implementing IUnion.

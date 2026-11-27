@@ -10,7 +10,8 @@ Four NuGet packages released together from one tag (plus a build tool packed ins
   type's `[Error(code, status, message)]` via `ErrorDescriptor.For(GetType())`, all `[JsonIgnore]`;
   `Message` isn't virtual, errors override the protected `FormatMessage`, so it never goes out in
   the details; `PrintMembers` prints only `Code` of the base), the `closed` `AmbientError`s
-  (`ValidationFailed`, `Unauthorized`, `Forbidden`, `Unavailable`: any result accepts them, no
+  (`ValidationFailed`, `Unauthorized`, `Forbidden`, `ConcurrencyConflict`, `RateLimited`,
+  `Unavailable`: any result accepts them, no
   set declares them), `Result` (any error) / `Result<T>` / `Result<T, TError>` (`TError` a union
   of error types, `where TError : struct, IUnion`; implicit conversions from the value and from
   `Error`, the latter wrapping the error in the union through the generated
@@ -29,7 +30,7 @@ Four NuGet packages released together from one tag (plus a build tool packed ins
   `ErrorManifestGenerator` writes each assembly's `ErrorManifestAttribute` (an `ErrorDescriptor`
   per described error type, an `ErrorSetDescriptor` per union of error types with a `switch` that
   wraps an error in the union); `ErrorAnalyzer` reports `HRES001`-`HRES006` (all errors: what
-  would fail at runtime); `ErrorSymbols` holds the shared rules. The tests compile C# 15 in memory
+  would fail at runtime); `ErrorSetSuppressor` suppresses CA1815 on error sets; `ErrorSymbols` holds the shared rules. The tests compile C# 15 in memory
   with Roslyn 5.12 (`VersionOverride`), the SDK's. CI's `.github/scripts/check-packed-generator.sh`
   builds an indirect consumer from the packed nupkg. Rules are tracked in
   `AnalyzerReleases.*.md` and the README's "Build errors".
@@ -50,7 +51,10 @@ Four NuGet packages released together from one tag (plus a build tool packed ins
   instead of failing the response). `WithResultResponses`/`WithResultEnvelopes` document a
   `Result<T, TError>` handler's errors: a `ProducesResponseTypeMetadata` per status the set's errors
   go out with (unless the endpoint documents it) and `DeclaredErrorsMetadata` (each error with its
-  status and body type) for Hlibz.OpenApi.Results. `Result<Unit, …>` succeeds without a body. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
+  status and body type) for Hlibz.OpenApi.Results. `ProducesErrorSet<TErrorSet>()`
+  (`RouteHandlerBuilder` only: C# can't infer one of two type arguments) does the same for any
+  handler (an `IResult`, a wrapped result), body type from `UseEnvelope`; it checks the set where
+  it's called, and an endpoint can carry several `DeclaredErrorsMetadata`. `Result<Unit, …>` succeeds without a body. Catalogs: a default one (`AddErrorCodeCatalog(assemblies)`, plain
   `IErrorCodeCatalog`) and any number of named ones (`AddErrorCodeCatalog(name, assemblies)`,
   keyed services, plus an `Internal/ErrorCodeCatalogName` service each since keyed ones can't be
   listed), so each app/audience publishes only its own assemblies' codes
@@ -108,7 +112,8 @@ Four NuGet packages released together from one tag (plus a build tool packed ins
 
 Validation keys are stored raw in `ValidationFailed`; casing is an HTTP concern
 (`ValidationKeyFormatter`). Likewise `ResultStatus` (on each `[Error]`) says what failed
-(`Error` = business rule / bad request, `Invalid` = validation, `Unavailable` = dependency down)
+(`Error` = business rule / bad request, `Invalid` = validation, `Unavailable` = dependency down,
+`TooManyRequests` = rate limited, 429)
 and `ResultHttpOptions.StatusCodes` maps it to HTTP (defaults 400/400/503; teams remap
 `Invalid`/`Error` to 422). Every status code goes through
 `ResultResponses.StatusCodeFor(status, options)`; adding a `ResultStatus` means a default in
@@ -116,7 +121,11 @@ and `ResultHttpOptions.StatusCodes` maps it to HTTP (defaults 400/400/503; teams
 is a successful envelope's).
 
 A `union` compiles to a struct without equality members, so CA1815 flags every error set under
-`AnalysisMode=All`: suppress it on the union (`#pragma`), as the tests and sample do. A success's code is resolved
+`AnalysisMode=All`: `ErrorSetSuppressor` (a `DiagnosticSuppressor` in the generator assembly,
+`HRESSPR1815`) suppresses it on error sets only (`ErrorSymbols.ErrorSetCasesOf`); any other union
+keeps it (`NotAnErrorSet` in the AspNetCore tests still needs its `#pragma`). Its tests stand in
+for CA1815 with an analyzer of their own; `check-packed-generator.sh` checks the packed one
+against the real rule. A success's code is resolved
 per request (`ResultResponses.CreateContext`, read from the endpoint by `DeferredHttpResult`/
 `DeferredActionResult`) and per endpoint for OpenAPI (`ResultEndpoints.Document`), most specific
 first: a `ToCreated…` call or `WithCreatedLocation` (201 + `Location`), the endpoint's last

@@ -49,4 +49,10 @@ public enum ResultStatus
     /// down; the caller may retry later (HTTP 503).
     /// </summary>
     Unavailable,
+
+    /// <summary>
+    /// The caller sent too many requests, e.g. a rate limit turned this one away; it may retry
+    /// later (HTTP 429).
+    /// </summary>
+    TooManyRequests,
 }

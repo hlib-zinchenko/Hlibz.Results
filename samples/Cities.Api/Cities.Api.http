@@ -6,6 +6,12 @@ GET {{host}}/api/cities/11111111-1111-1111-1111-111111111111
 ### 404, cities_1001, with the id as details
 GET {{host}}/api/cities/99999999-9999-9999-9999-999999999999
 
+### 200: a city as CSV, from a handler returning IResult
+GET {{host}}/api/cities/11111111-1111-1111-1111-111111111111/export
+
+### 404, cities_1001: the same error, documented with ProducesErrorSet<GetCityError>()
+GET {{host}}/api/cities/99999999-9999-9999-9999-999999999999/export
+
 ### 201 + Location
 POST {{host}}/api/cities
 Content-Type: application/json

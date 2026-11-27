@@ -30,6 +30,8 @@ public sealed class ResultHttpOptions
         [ResultStatus.Conflict] = Microsoft.AspNetCore.Http.StatusCodes.Status409Conflict,
         [ResultStatus.Unavailable] =
             Microsoft.AspNetCore.Http.StatusCodes.Status503ServiceUnavailable,
+        [ResultStatus.TooManyRequests] =
+            Microsoft.AspNetCore.Http.StatusCodes.Status429TooManyRequests,
     };
 
     /// <summary>

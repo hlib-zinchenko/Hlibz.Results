@@ -101,14 +101,27 @@ error's details. Return an error where a result is expected: it converts.
 | `Forbidden` | Authenticated but not allowed | 403 |
 | `Conflict` | Conflicts with the current state | 409 |
 | `Unavailable` | A dependency is down; retry later | 503 |
+| `TooManyRequests` | Too many requests (a rate limit); retry later | 429 |
 
 ### Ambient errors
 
-Four errors any operation can fail with, added by the layers around it rather than declared by
-it, so every result accepts them whatever its error set: `ValidationFailed(Errors)`
-(`validation_failed`), `Unauthorized`, `Forbidden` and `Unavailable` (`unauthorized`,
-`forbidden`, `unavailable`). They derive from `AmbientError`, a `closed` record: these are all
-of them.
+Errors any operation can fail with, added by the layers around it (validation, authorization, a
+filter, a rate limiter) rather than declared by it, so every result accepts them whatever its
+error set:
+
+| Error | Code | Status | Typically from |
+|---|---|---|---|
+| `ValidationFailed(Errors)` | `validation_failed` | `Invalid` (400) | validation |
+| `Unauthorized` | `unauthorized` | `Unauthorized` (401) | the auth gate |
+| `Forbidden` | `forbidden` | `Forbidden` (403) | the auth gate, an authorization filter |
+| `ConcurrencyConflict` | `concurrency_conflict` | `Conflict` (409) | an optimistic concurrency check (EF Core's `DbUpdateConcurrencyException`, say) |
+| `RateLimited` | `rate_limited` | `TooManyRequests` (429) | a rate limiter's `OnRejected` |
+| `Unavailable` | `unavailable` | `Unavailable` (503) | a dependency that is down |
+
+They derive from `AmbientError`, a `closed` record: these are all of them, so the catalog lists
+them and a client can handle each. An error of the host's own that no operation returns (a
+maintenance mode, say) is an ordinary `[Error]` record: the catalog lists it too, and
+`WriteErrorAsync` writes it.
 
 ## Results
 
@@ -161,7 +174,8 @@ string text = deleted.DeclaredError switch
 `Result<T, TError>` is a `Result<T>`, which is a `Result`, so anything taking a plain result
 takes it. `IsSuccess`/`IsFailure` tell the compiler whether `Value` or `Error` is set; `Map`,
 `MapAsync` and `Bind` chain steps, keeping the error set. A `union` compiles to a struct without
-equality members, which CA1815 flags under `AnalysisMode=All`: suppress it for error sets.
+equality members, which CA1815 flags under `AnalysisMode=All`; Hlibz.Results suppresses it on
+error sets (`HRESSPR1815`), which are never compared, and leaves it on every other struct.
 
 Nothing is scanned at runtime: Hlibz.Results' source generator lists each assembly's error types
 and error sets as it compiles, and the analyzer reports what would otherwise fail at runtime
@@ -220,6 +234,17 @@ the status it goes out with, for documentation that shows each error's code and 
 (Hlibz.OpenApi.Results does). Ambient errors aren't documented here: validation and
 authorization are documented by what adds them. Document a plain `Result<T>`'s failures on the
 endpoint (`.Produces<ErrorResponse>(404)`).
+
+A handler that can't return the `Result<T, TError>`, because it returns an `IResult` (a file, or
+a result it sends itself with `ToHttpResult()`) or a filter wraps what it returns, declares the
+set with `ProducesErrorSet<TErrorSet>()`. It's documented the same way, as `ResultEnvelope`s when
+`ResultHttpOptions.UseEnvelope` is on. Documentation only: how the errors go out is the handler's
+business. A handler that does return a `Result<T, TError>` can declare another set beside it.
+
+```csharp
+cities.MapGet("{id:guid}/export", ExportCity)  // IResult: a CSV file, or the error
+    .ProducesErrorSet<GetCityError>();
+```
 
 ### Success status codes
 
@@ -402,7 +427,7 @@ options.EnvelopeAlwaysOk = true;
 ```
 
 ```json
-{ "data": null, "is_success": false, "status": 404, "message": "Resource was not found.", "code": null }
+{ "data": null, "is_success": false, "status": 404, "message": "There's no city with this id.", "code": "cities_1001" }
 ```
 
 It only affects envelopes: a plain `ErrorResponse` has no status of its own, so `ToHttpResult()`
@@ -504,11 +529,19 @@ Works with the MCP C# SDK (ModelContextProtocol) 2.4.0 and later.
 ## Errors outside endpoints
 
 ```csharp
-context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-await context.Response.WriteErrorAsync("Too many requests.", "rate_limited", ct);
+builder.Services.AddRateLimiter(limiter =>
+{
+    limiter.OnRejected = (context, ct) =>   // 429, rate_limited
+        new ValueTask(context.HttpContext.Response.WriteErrorAsync(Result.Failure(new RateLimited()), ct));
+});
 
-await context.Response.WriteErrorAsync(Result.Failure(new Unavailable()), ct);
+await context.Response.WriteErrorAsync(Result.Failure(new Unavailable()), ct);   // 503, unavailable
 ```
+
+`WriteErrorAsync(Result)` sets the status code the error's status maps to and writes its body,
+as an endpoint would. `WriteErrorAsync(message, code)` writes a body of your own on the status
+code already set; every error body has a code, so it takes one, but prefer an `[Error]` record,
+which the catalog lists.
 
 ## FluentValidation
 
@@ -537,6 +570,10 @@ at runtime:
 | `HRES004` | A `Result<T, TError>`'s `TError` isn't an error set: a non-generic `union` of error types, none of them ambient. |
 | `HRES005` | An error is returned (converted, or passed to `Failure`) where the result's error set doesn't list it. |
 | `HRES006` | An `[Error]` has a blank code or the `Success` status. |
+
+It also suppresses CA1815 ("override equals on value types") on error sets, as `HRESSPR1815`: a
+union has no equality members of its own, and an error set is never compared. Any other struct
+keeps the warning.
 
 ## Limitations
 

@@ -26,7 +26,8 @@ app.MapErrorCodes(); // GET api/error-codes → [{ "code": "cities_1002", "statu
 `WithResultResponses()` lets handlers return a result as is, and documents each error a
 `Result<T, TError>` declares: a response per status code, plus `DeclaredErrorsMetadata` for
 documentation that shows each error's details. Without it, call `ToHttpResult()`; in a
-controller, `ToActionResult()` sends the same status codes and bodies.
+controller, `ToActionResult()` sends the same status codes and bodies. A handler returning an
+`IResult` (a file, say) declares its errors with `.ProducesErrorSet<TErrorSet>()`.
 
 A success is `200` unless you configure it per app and HTTP method
 (`options.SuccessStatusCodes[HttpMethods.Delete] = 204`), per group or endpoint
@@ -44,6 +45,7 @@ A success is `200` unless you configure it per app and HTTP method
 | `Forbidden` | 403 |
 | `Conflict` | 409 |
 | `Unavailable` | 503 |
+| `TooManyRequests` | 429 |
 
 Every failure has this body, the error's own data as `details` (`validationErrors` instead for a
 `ValidationFailed`):

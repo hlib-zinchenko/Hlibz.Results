@@ -29,6 +29,25 @@ internal static class ResultEndpoints
     }
 
     /// <summary>
+    /// Documents <paramref name="errorSet"/>'s errors on every endpoint <paramref name="builder"/>
+    /// builds, whatever its handler returns, sent as envelopes when
+    /// <see cref="ResultHttpOptions.UseEnvelope"/> is on.
+    /// </summary>
+    /// <param name="builder">The endpoint.</param>
+    /// <param name="errorSet">The error set.</param>
+    /// <exception cref="InvalidOperationException"><paramref name="errorSet"/> isn't an error set.</exception>
+    public static void DocumentErrorSet(IEndpointConventionBuilder builder, Type errorSet)
+    {
+        // Fails here, where the endpoint is mapped, rather than when the endpoints are built.
+        _ = ErrorSetDescriptor.For(errorSet);
+        builder.Finally(endpoint =>
+        {
+            ResultHttpOptions options = OptionsOf(endpoint);
+            DocumentErrors(endpoint.Metadata, errorSet, options.UseEnvelope, options);
+        });
+    }
+
+    /// <summary>
     /// The endpoint's filter: the handler's result turned into its response, or no filter at all
     /// when the handler doesn't return a result.
     /// </summary>
@@ -64,9 +83,7 @@ internal static class ResultEndpoints
             return;
         }
 
-        ResultHttpOptions options = endpoint.ApplicationServices is { } services
-            ? ResultResponses.GetOptions(services)
-            : new ResultHttpOptions();
+        ResultHttpOptions options = OptionsOf(endpoint);
         int statusCode = SuccessStatusCodeOf(endpoint, resultType, options);
         if (envelope)
         {
@@ -92,6 +109,11 @@ internal static class ResultEndpoints
             DocumentErrors(metadata, errorSet, envelope, options);
         }
     }
+
+    private static ResultHttpOptions OptionsOf(EndpointBuilder endpoint) =>
+        endpoint.ApplicationServices is { } services
+            ? ResultResponses.GetOptions(services)
+            : new ResultHttpOptions();
 
     /// <summary>
     /// Documents the errors <paramref name="errorSet"/> declares: one response per status code

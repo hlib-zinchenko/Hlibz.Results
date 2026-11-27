@@ -50,19 +50,25 @@ public static class HttpResponseErrorExtensions
     /// <summary>
     /// Writes an error body with <paramref name="message"/> and <paramref name="code"/>.
     /// </summary>
+    /// <remarks>
+    /// Prefer <see cref="WriteErrorAsync(HttpResponse, Result, CancellationToken)"/> with an
+    /// <c>[Error]</c> record, which the error code catalog lists: a code written here is one
+    /// clients can't look up.
+    /// </remarks>
     /// <param name="response">The response to write to; its status code is already set.</param>
     /// <param name="message">The message.</param>
-    /// <param name="code">The error code, if any.</param>
+    /// <param name="code">The error code clients branch on: every error body has one.</param>
     /// <param name="cancellationToken">A token to cancel the write.</param>
     /// <returns>A task that completes when the body is written.</returns>
     public static Task WriteErrorAsync(
         this HttpResponse response,
         string message,
-        string? code = null,
+        string code,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentNullException.ThrowIfNull(message);
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
         return response.WriteErrorAsync(new ErrorResponse { Message = message, Code = code }, cancellationToken);
     }
 

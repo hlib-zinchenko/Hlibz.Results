@@ -1,10 +1,12 @@
 using System.Net;
 using System.Text.Json;
+using System.Threading.RateLimiting;
 
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Hlibz.Results.AspNetCore.Tests;
@@ -117,6 +119,16 @@ public sealed class AuthorizationAndErrorWriterTests
         Assert.Equal("rate_limited", body.GetProperty("code").GetString());
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    public async Task WriteErrorAsync_WithBlankCode_Throws(string code)
+    {
+        DefaultHttpContext context = new();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => context.Response.WriteErrorAsync("Slow down.", code, Ct));
+    }
+
     [Fact]
     public async Task WriteErrorAsync_WithFailedResult_SetsStatusAndWritesBody()
     {
@@ -130,6 +142,51 @@ public sealed class AuthorizationAndErrorWriterTests
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         Assert.Equal("test_1002", body.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task WriteErrorAsync_FromRateLimiter_SendsRateLimited()
+    {
+        using HttpClient client = await TestApp.StartAsync(
+            app =>
+            {
+                app.UseRateLimiter();
+                app.MapGet("/limited", () => "ok");
+            },
+            services: services => services.AddRateLimiter(limiter =>
+            {
+                limiter.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(
+                    _ => RateLimitPartition.GetFixedWindowLimiter(
+                        "all",
+                        _ => new FixedWindowRateLimiterOptions { PermitLimit = 1, Window = TimeSpan.FromHours(1) }));
+                limiter.OnRejected = (context, cancellationToken) => new ValueTask(
+                    context.HttpContext.Response.WriteErrorAsync(Result.Failure(new RateLimited()), cancellationToken));
+            }));
+
+        using HttpResponseMessage first = await client.GetAsync("/limited", Ct);
+        using HttpResponseMessage second = await client.GetAsync("/limited", Ct);
+        JsonElement body = await second.ReadJsonAsync();
+
+        Assert.Equal(HttpStatusCode.OK, first.StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, second.StatusCode);
+        Assert.Equal("rate_limited", body.GetProperty("code").GetString());
+        Assert.Equal("Too many requests. Please retry later.", body.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task WriteErrorAsync_WithRemappedStatus_UsesTheAppsCode()
+    {
+        using HttpClient client = await TestApp.StartAsync(
+            app => app.Use(
+                (HttpContext context, RequestDelegate _) => context.Response.WriteErrorAsync(
+                    Result.Failure(new RateLimited()),
+                    context.RequestAborted)),
+            options => options.StatusCodes[ResultStatus.TooManyRequests] = StatusCodes.Status503ServiceUnavailable);
+
+        using HttpResponseMessage response = await client.GetAsync("/anything", Ct);
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal("rate_limited", (await response.ReadJsonAsync()).GetProperty("code").GetString());
     }
 
     [Fact]

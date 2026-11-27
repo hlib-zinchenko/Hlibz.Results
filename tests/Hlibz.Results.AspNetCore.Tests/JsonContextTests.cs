@@ -55,7 +55,7 @@ public sealed class JsonContextTests
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     return context.Response.WriteErrorAsync(
-                        new ErrorResponse { Message = "No.", Code = null },
+                        new ErrorResponse { Message = "No.", Code = "no" },
                         context.RequestAborted);
                 });
             },

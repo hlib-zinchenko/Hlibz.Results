@@ -69,6 +69,36 @@ internal static class Compiler
     }
 
     /// <summary>
+    /// Runs <see cref="ErrorSetSuppressor"/> on <paramref name="source"/> behind an analyzer that
+    /// reports CA1815 on every struct, as the .NET analyzers do on a struct without equality
+    /// members, failing on any compile error.
+    /// </summary>
+    /// <param name="source">The source.</param>
+    /// <param name="referenceLibrary">Whether to reference Hlibz.Results.</param>
+    /// <returns>Each CA1815, by the type's name, and whether it was suppressed.</returns>
+    public static async Task<IReadOnlyDictionary<string, bool>> SuppressAsync(string source, bool referenceLibrary = true)
+    {
+        CSharpCompilation compilation = Compile(source, referenceLibrary);
+        Assert.Empty(compilation.GetDiagnostics(TestContext.Current.CancellationToken).Where(IsError));
+        ImmutableArray<Diagnostic> diagnostics = await compilation
+            .WithAnalyzers(
+                [new ValueTypeEqualityAnalyzer(), new ErrorSetSuppressor()],
+                new CompilationWithAnalyzersOptions(
+                    new AnalyzerOptions([]),
+                    onAnalyzerException: null,
+                    concurrentAnalysis: true,
+                    logAnalyzerExecutionTime: false,
+                    reportSuppressedDiagnostics: true))
+            .GetAnalyzerDiagnosticsAsync(TestContext.Current.CancellationToken);
+        return diagnostics
+            .Where(diagnostic => diagnostic.Id == ValueTypeEqualityAnalyzer.Id)
+            .ToDictionary(
+                diagnostic => diagnostic.GetMessage(System.Globalization.CultureInfo.InvariantCulture),
+                diagnostic => diagnostic.IsSuppressed,
+                StringComparer.Ordinal);
+    }
+
+    /// <summary>
     /// Runs <see cref="ErrorManifestGenerator"/> on <paramref name="source"/>.
     /// </summary>
     /// <param name="source">The source.</param>
@@ -112,4 +142,42 @@ internal static class Compiler
 
     private static bool IsError(Diagnostic diagnostic) =>
         diagnostic.Severity == DiagnosticSeverity.Error;
+
+    /// <summary>
+    /// Stands in for the .NET analyzers' CA1815: reports every struct, its message the struct's
+    /// name.
+    /// </summary>
+    // A test stand-in, never loaded by a compiler: it reuses CA1815's id on purpose.
+#pragma warning disable RS1029, RS1036, RS1041, RS2008
+    [DiagnosticAnalyzer(LanguageNames.CSharp)]
+    private sealed class ValueTypeEqualityAnalyzer : DiagnosticAnalyzer
+    {
+        public const string Id = "CA1815";
+
+        private static readonly DiagnosticDescriptor Rule = new(
+            Id,
+            "Override equals and operator equals on value types",
+            "{0}",
+            "Performance",
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true);
+
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Rule];
+
+        public override void Initialize(AnalysisContext context)
+        {
+            context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+            context.EnableConcurrentExecution();
+            context.RegisterSymbolAction(
+                symbolContext =>
+                {
+                    if (symbolContext.Symbol is INamedTypeSymbol { TypeKind: TypeKind.Struct } type)
+                    {
+                        symbolContext.ReportDiagnostic(Diagnostic.Create(Rule, type.Locations[0], type.Name));
+                    }
+                },
+                SymbolKind.NamedType);
+        }
+    }
+#pragma warning restore RS1029, RS1036, RS1041, RS2008
 }

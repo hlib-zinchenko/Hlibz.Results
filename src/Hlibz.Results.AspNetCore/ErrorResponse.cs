@@ -17,10 +17,10 @@ public sealed class ErrorResponse
     public required string Message { get; init; }
 
     /// <summary>
-    /// Gets the machine-readable error code clients branch on (e.g. <c>orders_1001</c>), or
-    /// <c>null</c> when the failure has no specific code.
+    /// Gets the machine-readable error code clients branch on (e.g. <c>orders_1001</c>): every
+    /// error has one, the ones the API's catalog lists.
     /// </summary>
-    public required string? Code { get; init; }
+    public required string Code { get; init; }
 
     /// <summary>
     /// Gets the validation failures of a 400, keyed by the offending field, each with its

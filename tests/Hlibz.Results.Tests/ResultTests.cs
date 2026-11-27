@@ -72,6 +72,8 @@ public sealed class ResultTests
                 ("unauthorized", ResultStatus.Unauthorized),
                 ("forbidden", ResultStatus.Forbidden),
                 ("unavailable", ResultStatus.Unavailable),
+                ("concurrency_conflict", ResultStatus.Conflict),
+                ("rate_limited", ResultStatus.TooManyRequests),
             ],
             new Error[]
             {
@@ -79,6 +81,8 @@ public sealed class ResultTests
                 new Unauthorized(),
                 new Forbidden(),
                 new Unavailable(),
+                new ConcurrencyConflict(),
+                new RateLimited(),
             }.Select(error => (error.Code, error.Status)));
     }
 

@@ -7,7 +7,9 @@
 # each declaring one error code, then runs Api: each assembly must carry the generated list of
 # its codes, and an ErrorCodeCatalog of both must list both. The catalog throws for an assembly
 # the generator didn't run on, so a generator that is missing from the package, doesn't load or
-# doesn't reach an indirect consumer fails the check.
+# doesn't reach an indirect consumer fails the check. Shared also turns CA1815 into an error and
+# declares an error set without suppressing it: the package's suppressor must, or Shared won't
+# build.
 #
 # Usage: check-packed-generator.sh <directory holding the .nupkg files>
 set -euo pipefail
@@ -58,6 +60,13 @@ cat > "$work/Shared/Shared.csproj" <<EOF
 </Project>
 EOF
 
+cat > "$work/Shared/.editorconfig" <<'EOF'
+root = true
+
+[*.cs]
+dotnet_diagnostic.CA1815.severity = error
+EOF
+
 cat > "$work/Shared/OrdersErrors.cs" <<'EOF'
 using Hlibz.Results;
 
@@ -66,7 +75,6 @@ namespace Shared;
 [Error("orders_1001", ResultStatus.Conflict, "The order is closed.")]
 public sealed record OrderClosed(Guid OrderId) : Error;
 
-#pragma warning disable CA1815
 public union CloseOrderError(OrderClosed);
 EOF
 

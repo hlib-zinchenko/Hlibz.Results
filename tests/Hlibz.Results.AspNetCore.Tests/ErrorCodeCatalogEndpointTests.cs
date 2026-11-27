@@ -16,8 +16,8 @@ public sealed class ErrorCodeCatalogEndpointTests
 
     private static readonly string[] UserCodes =
     [
-        "forbidden", "test_1001", "test_1002", "test_1003", "test_1004", "test_1005", "test_1006",
-        "unauthorized", "unavailable", "validation_failed",
+        "concurrency_conflict", "forbidden", "rate_limited", "test_1001", "test_1002", "test_1003",
+        "test_1004", "test_1005", "test_1006", "unauthorized", "unavailable", "validation_failed",
     ];
 
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
@@ -79,7 +79,7 @@ public sealed class ErrorCodeCatalogEndpointTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(
-            ["admin_1001", "forbidden", "unauthorized", "unavailable", "validation_failed"],
+            ["admin_1001", "concurrency_conflict", "forbidden", "rate_limited", "unauthorized", "unavailable", "validation_failed"],
             (await response.ReadJsonAsync()).EnumerateArray().Select(code => code.GetString()));
     }
 

@@ -117,7 +117,7 @@ public sealed class ErrorManifestGeneratorTests
         ErrorCodeCatalog catalog = new([Load()]);
 
         Assert.Equal(
-            ["cities_1001", "cities_1002", "cities_1003", "cities_1004", "forbidden", "unauthorized", "unavailable", "validation_failed"],
+            ["cities_1001", "cities_1002", "cities_1003", "cities_1004", "concurrency_conflict", "forbidden", "rate_limited", "unauthorized", "unavailable", "validation_failed"],
             catalog.All.Select(error => error.Code));
     }
 
@@ -161,7 +161,7 @@ public sealed class ErrorManifestGeneratorTests
         ErrorCodeCatalog catalog = new([typeof(object).Assembly]);
 
         Assert.Equal(
-            ["forbidden", "unauthorized", "unavailable", "validation_failed"],
+            ["concurrency_conflict", "forbidden", "rate_limited", "unauthorized", "unavailable", "validation_failed"],
             catalog.All.Select(error => error.Code));
     }
 
